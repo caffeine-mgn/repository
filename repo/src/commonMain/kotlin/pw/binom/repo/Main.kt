@@ -15,67 +15,7 @@ import pw.binom.io.write
 
 val LOG = Logger.getLog("Main")
 
-/*
-class FileDownloadHandler(val rootDir: String) : Handler {
-    val LOG = Logger.getLog("Download")
-    override suspend fun request(req: HttpRequest, resp: HttpResponse) {
-        val root = File(rootDir)
-        val file = if (req.uri == "/")
-            root
-        else
-            File(root, req.uri.removePrefix("/").replace('/', File.SEPARATOR))
-
-        resp.status = 200
-        resp.resetHeader("Content-Length", file.size.toString())
-        val contentType = when (file.nameWithoutExtension.toLowerCase()) {
-            "zip" -> "application/zip"
-            "pom", "xml" -> "application/xml"
-            "svg" -> "image/svg+xml"
-            "js" -> "application/javascript"
-            "png" -> "image/png"
-            "webp" -> "image/webp"
-            else -> "application/octet-stream"
-        }
-        LOG.info("[${Thread.id}] Get file \"$file\". Size: ${file.size}")
-        resp.resetHeader("Content-Type", contentType)
-        if (req.method == "GET")
-            FileInputStream(file).use {
-                it.copyTo(resp.output, DEFAULT_BUFFER_SIZE)
-            }
-        LOG.info("[${Thread.id}] File was send")
-        resp.disconnect()
-    }
-
-}
-
-class FileDownloader(root: String) : FixedThreadPool.WorkerExecutor<FileDownloader.Param, Unit, String> {
-    val LOG = Logger.getLog("Download")
-    val manaber = HttpServer(FileDownloadHandler(root))
-    var count = 0
-    var pop = PopResult<FixedThreadPool.Data<Param, Unit>>()
-
-    override fun start(controller: FixedThreadPool.Controller<Param, Unit, String>) {
-
-        while (!controller.isInterrupted) {
-            controller.next(pop, 1)
-            if (!pop.isEmpty) {
-                LOG.info("New file for download ${pop.value.value.file}")
-                manaber.attach(pop.value.value.httpConnection)
-            }
-            if (!manaber.update(1))
-                Thread.sleep(10)
-        }
-    }
-
-    class Param(val file: File, val httpConnection: HttpConnectionState)
-
-
-}
-*/
-class HttpHandler(val config: Config) : Handler {
-
-//    val executor = FixedThreadPool(4, { config.root.path }) { FileDownloader(it) }
-
+class HttpHandler(private val config: Config) : Handler {
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
 
@@ -226,8 +166,7 @@ class Config(
         val root: File,
         val allowRewriting: Boolean,
         val allowGuest: Boolean,
-        val users: List<User>,
-        val threadCount: Int
+        val users: List<User>
 )
 
 private fun printHelp() {
@@ -238,7 +177,6 @@ private fun printHelp() {
     println("-bind=0.0.0.0:8080    Bind address for web server")
     println("-admin=admin:admin123    Define new Administrator. Can upload change repository. ")
     println("-guest=admin:admin123    Define new Guest. Can only read repository. ")
-//    println("-threads=2    Thread for file download")
     println("-h    Shows this help")
 }
 
@@ -252,7 +190,6 @@ fun main(args: Array<String>) {
     val root = (args.getParam("-root") ?: "./").let { File(it) }
     val allowRewriting = args.getParam("-allowRewriting")?.let { it == "true" || it == "1" } ?: false
     val allowAnonymous = args.getParam("-allowAnonymous")?.let { it == "true" || it == "1" } ?: false
-    val threads = args.getParam("-threads")?.toIntOrNull() ?: 2
     val users = ArrayList<User>()
     val existUsers = HashSet<String>()
 
@@ -317,8 +254,7 @@ fun main(args: Array<String>) {
             root = root,
             allowGuest = allowAnonymous,
             allowRewriting = allowRewriting,
-            users = users,
-            threadCount = threads
+            users = users
     )
     val server = HttpServer(HttpHandler(config))
 
