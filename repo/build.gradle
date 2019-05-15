@@ -1,0 +1,113 @@
+apply plugin: 'maven-publish'
+apply plugin: 'org.jetbrains.kotlin.multiplatform'
+kotlin {
+
+
+    targets {
+
+        fromPreset(kotlin.presets.linuxX64, 'linuxX64') {
+            compilations.main.outputKinds 'executable'
+            compilations.main.entryPoint = 'pw.binom.repo.main'
+        }
+
+        fromPreset(kotlin.presets.linuxArm32Hfp, 'linuxArm32') {
+            compilations.main.outputKinds 'executable'
+            compilations.main.entryPoint = 'pw.binom.repo.main'
+        }
+
+        fromPreset(kotlin.presets.mingwX64, 'mingw') {
+            compilations.main.outputKinds 'executable'
+            compilations.main.entryPoint = 'pw.binom.repo.main'
+        }
+
+        fromPreset(kotlin.presets.mingwX86, 'mingwX86') {
+            compilations.main.outputKinds 'executable'
+            compilations.main.entryPoint = 'pw.binom.repo.main'
+        }
+
+        presets.forEach {
+            println("target=${it.name}")
+        }
+
+        jvm()
+    }
+
+    sourceSets {
+
+        commonMain {
+            dependencies {
+                api "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version"
+                api "pw.binom.io:core:$network_version"
+                api "pw.binom.io:server:$network_version"
+                api "pw.binom.io:file:$network_version"
+                api "pw.binom.io:httpServer:$network_version"
+                api "pw.binom.io:job:$network_version"
+            }
+        }
+
+        nativeMain {
+            dependencies {
+                dependsOn commonMain
+
+
+            }
+        }
+
+        mingwMain {
+            dependencies {
+                dependsOn linuxX64Main
+            }
+        }
+
+        mingwX86Main {
+            dependencies {
+                dependsOn mingwMain
+            }
+        }
+
+
+        linuxX64Main {
+            dependencies {
+                dependsOn nativeMain
+            }
+        }
+
+        linuxArm32Main {
+            dependencies {
+                dependsOn linuxX64Main
+            }
+        }
+
+        jvmMain {
+            dependencies {
+                api "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+            }
+        }
+    }
+}
+
+jvmJar {
+    with {
+        from {
+            (configurations.jvmRuntimeClasspath).collect {
+                it.isDirectory() ? it : zipTree(it)
+            }
+        } {
+            exclude "META-INF/*.SF"
+            exclude "META-INF/*.DSA"
+            exclude "META-INF/*.RSA"
+        }
+    }
+    manifest {
+        attributes 'Main-Class': "pw.binom.repo.MainKt"
+    }
+}
+
+task runMainExecutableJvm(dependsOn: jvmJar, group: "run") {
+
+    doLast {
+        def args1 = [jvmJar.archiveFile.get()]
+        args1.addAll(System.getenv("ARGS")?.split(" ") ?: ["-port=9090", "-user=admin:admin"])
+        javaexec { main = "-jar"; args args1 }
+    }
+}
