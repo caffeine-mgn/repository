@@ -20,24 +20,11 @@ allprojects {
     group = "pw.binom.repo"
 
     repositories {
-        maven {
-            name="BinomRepository"
-            def repoUser = System.getenv("REPO_USER")
-            def repoPassword = System.getenv("REPO_PASSWORD")
-            def repoUrl = System.getenv("REPO_URL")
-            println("repoUser=$repoUser")
-            println("repoPassword=$repoPassword")
-            println("repoUrl=$repoUrl")
-
-            url repoUrl
-
-            credentials {
-                username = repoUser
-                password = repoPassword
-            }
-        }
         mavenLocal()
         mavenCentral()
         jcenter()
+        maven {
+            url "https://repo.binom.pw/releases"
+        }
     }
 }
