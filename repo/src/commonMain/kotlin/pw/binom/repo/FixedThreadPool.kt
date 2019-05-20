@@ -1,9 +1,12 @@
 package pw.binom.repo
 
-import pw.binom.*
+import pw.binom.FreezedStack
+import pw.binom.Queue
 import pw.binom.atomic.AtomicBoolean
+import pw.binom.doFreeze
 import pw.binom.job.ResumableFuturePromise
 import pw.binom.job.Worker
+import pw.binom.neverFreeze
 
 class FixedThreadPool<P, R>(size: Int, taskExecutor: () -> WorkerExecutor<P, R>) : Executor<P, R> {
     init {
@@ -22,11 +25,11 @@ class FixedThreadPool<P, R>(size: Int, taskExecutor: () -> WorkerExecutor<P, R>)
     }
 
     class Controller<P, R>(val queue: Queue<Data<P, R>>, val taskExecutor: () -> WorkerExecutor<P, R>) {
-        fun next(result: PopResult<Data<P, R>>, timeout: Long? = null) {
-            if (isInterrupted)
-                throw IllegalStateException("Thread already Interrupted")
-            queue.popAwait(result, timeout)
-        }
+//        fun next(result: PopResult<Data<P, R>>, timeout: Long? = null) {
+//            if (isInterrupted)
+//                throw IllegalStateException("Thread already Interrupted")
+//            queue.popAwait(result, timeout)
+//        }
 
         private val _interrupted = AtomicBoolean(false)
 
