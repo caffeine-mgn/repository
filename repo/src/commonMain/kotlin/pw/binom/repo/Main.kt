@@ -1,163 +1,30 @@
 package pw.binom.repo
 
-import pw.binom.Base64
-import pw.binom.DEFAULT_BUFFER_SIZE
-import pw.binom.Thread
-import pw.binom.asUTF8String
-import pw.binom.io.copyTo
-import pw.binom.io.file.*
-import pw.binom.io.httpServer.Handler
-import pw.binom.io.httpServer.HttpRequest
-import pw.binom.io.httpServer.HttpResponse
-import pw.binom.io.httpServer.HttpServer
-import pw.binom.io.use
-import pw.binom.io.write
+import pw.binom.io.file.File
+import pw.binom.io.file.LocalFileSystem
+import pw.binom.io.httpServer.*
+import pw.binom.logger.Logger
+import pw.binom.logger.info
+import pw.binom.logger.severe
+import pw.binom.logger.warn
 
 val LOG = Logger.getLog("Main")
 
 class HttpHandler(private val config: Config) : Handler {
+    val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config))
+    val dav = WebDavHandler("${config.prefix}/dav", fs)
+    val files = FileSystemHandler(fs)
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
-
-        fun checkAccess(): User? {
-            val authorization = req.headers["Authorization"]?.firstOrNull()
-            if (authorization == null) {
-                resp.status = 401
-                resp.resetHeader("WWW-Authenticate", "Basic")
-                LOG.warn("Authorization not set")
-                return null
-            }
-
-            if (!authorization.startsWith("Basic ")) {
-                LOG.warn("Invalid Authorization Type")
-                resp.resetHeader("WWW-Authenticate", "Basic")
-                resp.status = 401
-                return null
-            }
-
-            val auth = authorization.removePrefix("Basic ").let { Base64.decode(it) }.asUTF8String().split(':', limit = 2)
-            val user = config.users.find { it.login == auth[0] }
-            if (user == null) {
-                LOG.warn("User \"${auth[0]}\" not found")
-                resp.resetHeader("WWW-Authenticate", "Basic")
-                resp.status = 401
-                return null
-            }
-
-            if (user.password != auth[1]) {
-                LOG.warn("Invalid password of user \"${auth[0]}\"")
-                resp.resetHeader("WWW-Authenticate", "Basic")
-                resp.status = 401
-                return null
-            }
-            return user
-        }
-
-        if (req.method == "GET" || req.method == "HEAD") {
-            val head = req.method == "HEAD"
-            if (!config.allowGuest && checkAccess() == null)
-                return
-
-            val file = if (req.uri == "/")
-                config.root
-            else
-                File(config.root, req.uri.removePrefix("/").replace('/', File.SEPARATOR))
-
-            if (file.isDirectory) {
-                resp.status = 200
-                val sb = StringBuilder()
-                sb.append("<html>")
-                sb.append("<b>Binom Repository Server</b>").append("<hr/>")
-                file.iterator().use {
-                    it.forEach {
-                        if (it.isFile)
-                            sb.append("<a href=\"${it.name}\">")
-                        if (it.isDirectory)
-                            sb.append("<a href=\"${it.name}/\">")
-                        sb.append(it.name).append("</a></br>")
-                    }
-                }
-
-                sb.append("</html>")
-                resp.resetHeader("Content-Length", sb.length.toString())
-                if (!head)
-                    resp.output.write(sb.toString())
-                return
-            }
-
-            if (file.isFile) {
-
-
-                resp.status = 200
-                resp.resetHeader("Content-Length", file.size.toString())
-                val contentType = when (file.nameWithoutExtension.toLowerCase()) {
-                    "zip" -> "application/zip"
-                    "pom", "xml" -> "application/xml"
-                    "svg" -> "image/svg+xml"
-                    "js" -> "application/javascript"
-                    "png" -> "image/png"
-                    "webp" -> "image/webp"
-                    else -> "application/octet-stream"
-                }
-                LOG.info("Get file \"$file\". Size: ${file.size}")
-                resp.resetHeader("Content-Type", contentType)
-                if (req.method == "GET")
-                    FileInputStream(file).use {
-                        it.copyTo(resp.output, DEFAULT_BUFFER_SIZE)
-                    }
-                LOG.info("File \"$file\" was send")
-                return
-            }
-            LOG.warn("Path not found \"${req.uri}\"")
-            resp.status = 404
+        if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
+            dav.request(
+                    req.withContextURI(req.uri.removePrefix("/dav")),
+                    resp
+            )
             return
         }
-
-        if (req.method == "PUT") {
-            val user = checkAccess() ?: return
-            if (user.readOnly) {
-                resp.status = 403
-                return
-            }
-
-            val file = File(config.root, req.uri.removePrefix("/").replace('/', File.SEPARATOR))
-            if (file.isFile) {
-
-                val fileName = File(req.uri).name.toLowerCase()
-                if (!config.allowRewriting &&
-                        fileName != "maven-metadata.xml" &&
-                        fileName != "maven-metadata.xml.md5" &&
-                        fileName != "maven-metadata.xml.sha1") {
-
-                    resp.status = 403
-                    resp.disconnect()
-                    LOG.warn("Not allow rewrite file $file")
-                    return
-                }
-            }
-            val startUpload = Thread.currentTimeMillis()
-            file.parent.mkdirs()
-            FileOutputStream(file).use {
-                req.input.copyTo(it, DEFAULT_BUFFER_SIZE)
-                it.flush()
-            }
-            LOG.info("New File Upload ${file.path} ${file.size} bytes (${Thread.currentTimeMillis() - startUpload} ms)")
-            resp.status = 200
-            return
-        }
-
-        resp.status = 404
+        files.request(req, resp)
     }
-}
-
-fun File.mkdirs(): Boolean {
-    if (isFile)
-        return false
-    if (isDirectory)
-        return true
-    if (!parent.mkdirs())
-        return false
-    return mkdir()
 }
 
 class User(val login: String, val password: String, val readOnly: Boolean)
@@ -166,7 +33,9 @@ class Config(
         val root: File,
         val allowRewriting: Boolean,
         val allowGuest: Boolean,
-        val users: List<User>
+        val users: List<User>,
+        val prefix: String,
+        val webdavEnable: Boolean
 )
 
 private fun printHelp() {
@@ -177,6 +46,8 @@ private fun printHelp() {
     println("-bind=0.0.0.0:8080    Bind address for web server")
     println("-admin=admin:admin123    Define new Administrator. Can upload change repository. ")
     println("-guest=admin:admin123    Define new Guest. Can only read repository. ")
+    println("-prefix=/release    Set URI prefix")
+    println("-webdav=true    Enable Web Dav Access")
     println("-h    Shows this help")
 }
 
@@ -190,6 +61,8 @@ fun main(args: Array<String>) {
     val root = (args.getParam("-root") ?: "./").let { File(it) }
     val allowRewriting = args.getParam("-allowRewriting")?.let { it == "true" || it == "1" } ?: false
     val allowAnonymous = args.getParam("-allowAnonymous")?.let { it == "true" || it == "1" } ?: false
+    val webdavEnable = args.getParam("-webdav")?.let { it == "true" || it == "1" } ?: false
+    val prefix = args.getParam("-prefix") ?: ""
     val users = ArrayList<User>()
     val existUsers = HashSet<String>()
 
@@ -239,14 +112,16 @@ fun main(args: Array<String>) {
     LOG.info("Allow Rewriting: $allowRewriting")
     LOG.info("Allow Anonymous Access: $allowAnonymous")
     LOG.info("Bind: $bind")
+    LOG.info("Prefix: $prefix")
+    LOG.info("WebDav: ${if (webdavEnable) "enabled" else "disabled"}")
 //    LOG.info("Thread Count: $threads")
     if (users.isNotEmpty()) {
         LOG.info("Users:")
         users.forEach {
             if (it.readOnly)
-                LOG.info("${it.login} [Guest]")
+                LOG.info("  ${it.login} [Guest]")
             else
-                LOG.info("${it.login} [Administrator]")
+                LOG.info("  ${it.login} [Administrator]")
         }
 
     }
@@ -254,7 +129,9 @@ fun main(args: Array<String>) {
             root = root,
             allowGuest = allowAnonymous,
             allowRewriting = allowRewriting,
-            users = users
+            users = users,
+            prefix = prefix,
+            webdavEnable = webdavEnable
     )
     val server = HttpServer(HttpHandler(config))
 
