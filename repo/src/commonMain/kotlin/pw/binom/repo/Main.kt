@@ -3,6 +3,7 @@ package pw.binom.repo
 import pw.binom.io.file.File
 import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.httpServer.*
+import pw.binom.io.socket.ConnectionManager
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
@@ -133,9 +134,10 @@ fun main(args: Array<String>) {
             prefix = prefix,
             webdavEnable = webdavEnable
     )
-    val server = HttpServer(HttpHandler(config))
+    val connectionManager = ConnectionManager()
+    val server = HttpServer(connectionManager, HttpHandler(config))
 
-    server.bind(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
+    server.bindHTTP(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
     while (true) {
         val r = server.update()
     }
