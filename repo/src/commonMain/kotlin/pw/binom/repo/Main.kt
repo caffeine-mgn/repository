@@ -1,5 +1,7 @@
 package pw.binom.repo
 
+import pw.binom.Environment
+import pw.binom.Platform
 import pw.binom.io.file.File
 import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.httpServer.*
@@ -8,13 +10,17 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.logger.warn
+import pw.binom.platform
 
 val LOG = Logger.getLog("Main")
 
 class HttpHandler(private val config: Config) : Handler {
     val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config))
     val dav = WebDavHandler("${config.prefix}/dav", fs)
-    val files = FileSystemHandler(fs)
+    val files = FileSystemHandler(
+            title = config.title,
+            fs = fs
+    )
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
         if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
@@ -36,12 +42,26 @@ class Config(
         val allowGuest: Boolean,
         val users: List<User>,
         val prefix: String,
-        val webdavEnable: Boolean
+        val webdavEnable: Boolean,
+        val title: String
 )
 
 private fun printHelp() {
+
+    val simplePathToFile = when (Environment.platform) {
+        Platform.MINGW_X86,
+        Platform.MINGW_X64 -> "D:\\repository"
+
+        Platform.MACOS,
+        Platform.LINUX_64,
+        Platform.LINUX_ARM_32 -> "/var/repository"
+
+        Platform.JVM,
+        Platform.JS -> ""
+    }
+
     println("Commands:")
-    println("-root=D:\\repo    Root directory for repository")
+    println("-root=$simplePathToFile    Root directory for repository")
     println("-allowRewriting=true    Allow or Disallow file rewriting")
     println("-allowAnonymous=true    Allow or Disallow Anonymous read access")
     println("-bind=0.0.0.0:8080    Bind address for web server")
@@ -49,6 +69,7 @@ private fun printHelp() {
     println("-guest=admin:admin123    Define new Guest. Can only read repository. ")
     println("-prefix=/release    Set URI prefix")
     println("-webdav=true    Enable Web Dav Access")
+    println("-title=\"Binom Repository Server\" Title on File List Page")
     println("-h    Shows this help")
 }
 
@@ -59,6 +80,7 @@ fun main(args: Array<String>) {
         return
     }
 
+    val title = args.getParam("-title") ?: "Binom Repository Server"
     val root = (args.getParam("-root") ?: "./").let { File(it) }
     val allowRewriting = args.getParam("-allowRewriting")?.let { it == "true" || it == "1" } ?: false
     val allowAnonymous = args.getParam("-allowAnonymous")?.let { it == "true" || it == "1" } ?: false
@@ -132,7 +154,8 @@ fun main(args: Array<String>) {
             allowRewriting = allowRewriting,
             users = users,
             prefix = prefix,
-            webdavEnable = webdavEnable
+            webdavEnable = webdavEnable,
+            title = title
     )
     val connectionManager = ConnectionManager()
     val server = HttpServer(connectionManager, HttpHandler(config))

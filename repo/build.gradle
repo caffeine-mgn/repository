@@ -3,34 +3,39 @@ apply plugin: 'org.jetbrains.kotlin.multiplatform'
 kotlin {
 
 
-    targets {
-
-        fromPreset(kotlin.presets.linuxX64, 'linuxX64') {
-            compilations.main.outputKinds 'executable'
-            compilations.main.entryPoint = 'pw.binom.repo.main'
+    def nativeEntryPoint = 'pw.binom.repo.main'
+    linuxX64 { // Use your target instead.
+        binaries {
+            executable {
+                entryPoint = nativeEntryPoint
+            }
         }
-
-        fromPreset(kotlin.presets.linuxArm32Hfp, 'linuxArm32') {
-            compilations.main.outputKinds 'executable'
-            compilations.main.entryPoint = 'pw.binom.repo.main'
-        }
-
-        fromPreset(kotlin.presets.mingwX64, 'mingw') {
-            compilations.main.outputKinds 'executable'
-            compilations.main.entryPoint = 'pw.binom.repo.main'
-        }
-
-        fromPreset(kotlin.presets.mingwX86, 'mingwX86') {
-            compilations.main.outputKinds 'executable'
-            compilations.main.entryPoint = 'pw.binom.repo.main'
-        }
-
-        presets.forEach {
-            println("target=${it.name}")
-        }
-
-        jvm()
     }
+
+    linuxArm32Hfp { // Use your target instead.
+        binaries {
+            executable {
+                entryPoint = nativeEntryPoint
+            }
+        }
+    }
+
+    mingwX64 { // Use your target instead.
+        binaries {
+            executable {
+                entryPoint = nativeEntryPoint
+            }
+        }
+    }
+
+    mingwX86 { // Use your target instead.
+        binaries {
+            executable {
+                entryPoint = nativeEntryPoint
+            }
+        }
+    }
+    jvm()
 
     sourceSets {
 

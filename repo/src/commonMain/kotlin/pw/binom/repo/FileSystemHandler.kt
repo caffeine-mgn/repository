@@ -1,6 +1,7 @@
 package pw.binom.repo
 
 import pw.binom.io.*
+import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.*
 
 private fun contentTypeByExt(ext: String) =
@@ -15,7 +16,7 @@ private fun contentTypeByExt(ext: String) =
             else -> "application/octet-stream"
         }
 
-class FileSystemHandler(val fs: FileSystem<BasicAuth?>) : Handler {
+class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>) : Handler {
 
     private suspend fun getFile(file: FileSystem.Entity<BasicAuth?>, resp: HttpResponse) {
         if (!file.isFile)
@@ -33,17 +34,19 @@ class FileSystemHandler(val fs: FileSystem<BasicAuth?>) : Handler {
     private suspend fun getDirList(user: BasicAuth?, file: FileSystem.Entity<BasicAuth?>, resp: HttpResponse) {
         if (file.isFile)
             throw IllegalArgumentException("File ${file.path} must be a Directory")
+        resp.status = 200
 
-        val dataOutput = ByteArrayOutputStream()
-        val sb = AsyncAppendableUTF8(dataOutput.asAsync())
+        resp.resetHeader(Headers.CONTENT_TYPE, "text/html; charset=UTF-8")
+
+        val sb = resp.output.utf8Appendable()
         sb.append("<html>")
-                .append("<b>Binom Repository Server</b>").append("<hr/>")
+                .append("<b>$title</b>").append("<hr/>")
         sb.append("<table>")
                 .append("<tr><td><b>Name</b></td><td><b>Size</b></td></tr>")
         fs.getDir(user, file.path)!!.forEach {
             sb.append("<tr>")
             if (it.isFile)
-                sb.append("<td><a href=\"${urlEncode(it.name)}\">").append(it.name).append("</a></td><td>").append(file.length.toString()).append("</td>")
+                sb.append("<td><a href=\"${urlEncode(it.name)}\">").append(it.name).append("</a></td><td>").append(it.length.toString()).append("</td>")
             else
                 sb.append("<td><a href=\"${urlEncode(it.name)}/\">").append(it.name).append("</a></td><td></td>")
             sb.append("</tr>")
@@ -51,12 +54,7 @@ class FileSystemHandler(val fs: FileSystem<BasicAuth?>) : Handler {
         sb.append("</table>")
 
         sb.append("</html>")
-        val data = dataOutput.toByteArray()
-        resp.status = 200
-        resp.resetHeader("Content-Length", data.size.toString())
-        resp.resetHeader("Content-Type", "text/html; charset=UTF-8")
-        println("File Dir request output size: ${data.size} ${dataOutput.size}")
-        resp.output.write(data)
+        resp.output.flush()
     }
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
@@ -117,13 +115,19 @@ class NullAsyncOutputStream : AsyncOutputStream {
             throw IllegalStateException("Thread already closed")
     }
 
-    override fun close() {
+    override suspend fun close() {
         checkClose()
         closed = true
     }
 
     override suspend fun flush() {
         checkClose()
+    }
+
+    override suspend fun write(data: Byte): Boolean {
+        checkClose()
+        _wrote += 1
+        return true
     }
 
     override suspend fun write(data: ByteArray, offset: Int, length: Int): Int {
