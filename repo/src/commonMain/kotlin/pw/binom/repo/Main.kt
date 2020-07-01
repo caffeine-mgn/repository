@@ -1,25 +1,31 @@
 package pw.binom.repo
 
-import pw.binom.Environment
-import pw.binom.Platform
+import pw.binom.*
+import pw.binom.atomic.AtomicBoolean
 import pw.binom.io.file.File
 import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.httpServer.*
-import pw.binom.io.socket.ConnectionManager
+import pw.binom.io.socket.nio.SocketNIOManager
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.logger.warn
-import pw.binom.platform
+import pw.binom.pool.ObjectPool
+import pw.binom.process.Signal
 
 val LOG = Logger.getLog("Main")
 
-class HttpHandler(private val config: Config) : Handler {
+class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>) : Handler {
     val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config))
-    val dav = WebDavHandler("${config.prefix}/dav", fs)
+    val dav = WebDavHandler(
+            prefix = "${config.prefix}/dav",
+            fs = fs,
+            bufferPool = copyBuffer
+    )
     val files = FileSystemHandler(
             title = config.title,
-            fs = fs
+            fs = fs,
+            copyBuffer = copyBuffer
     )
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
@@ -68,6 +74,7 @@ private fun printHelp() {
     println("-admin=admin:admin123    Define new Administrator. Can upload change repository. ")
     println("-guest=admin:admin123    Define new Guest. Can only read repository. ")
     println("-prefix=/release    Set URI prefix")
+    println("-zlib=false    Enable Zlib Encode")
     println("-webdav=true    Enable Web Dav Access")
     println("-title=\"Binom Repository Server\" Title on File List Page")
     println("-h    Shows this help")
@@ -83,6 +90,7 @@ fun main(args: Array<String>) {
     val title = args.getParam("-title") ?: "Binom Repository Server"
     val root = (args.getParam("-root") ?: "./").let { File(it) }
     val allowRewriting = args.getParam("-allowRewriting")?.let { it == "true" || it == "1" } ?: false
+    val enableZlib = args.getParam("-zlib")?.let { it == "true" || it == "1" } ?: false
     val allowAnonymous = args.getParam("-allowAnonymous")?.let { it == "true" || it == "1" } ?: false
     val webdavEnable = args.getParam("-webdav")?.let { it == "true" || it == "1" } ?: false
     val prefix = args.getParam("-prefix") ?: ""
@@ -121,33 +129,14 @@ fun main(args: Array<String>) {
             return
         }
         addr
-
     }
 
     if (bind == null) {
-        println("Invalid -port argument")
+        println("Invalid -bind argument")
         printHelp()
         return
     }
 
-    LOG.info("Start Binom Repository")
-    LOG.info("Root directory: $root")
-    LOG.info("Allow Rewriting: $allowRewriting")
-    LOG.info("Allow Anonymous Access: $allowAnonymous")
-    LOG.info("Bind: $bind")
-    LOG.info("Prefix: $prefix")
-    LOG.info("WebDav: ${if (webdavEnable) "enabled" else "disabled"}")
-//    LOG.info("Thread Count: $threads")
-    if (users.isNotEmpty()) {
-        LOG.info("Users:")
-        users.forEach {
-            if (it.readOnly)
-                LOG.info("  ${it.login} [Guest]")
-            else
-                LOG.info("  ${it.login} [Administrator]")
-        }
-
-    }
     val config = Config(
             root = root,
             allowGuest = allowAnonymous,
@@ -157,13 +146,51 @@ fun main(args: Array<String>) {
             webdavEnable = webdavEnable,
             title = title
     )
-    val connectionManager = ConnectionManager()
-    val server = HttpServer(connectionManager, HttpHandler(config))
+
+    LOG.info("Start Binom Repository")
+    LOG.info("Root directory: ${config.root.path}")
+    LOG.info("Allow Rewriting: ${config.allowRewriting}")
+    LOG.info("Allow Anonymous Access: ${config.allowGuest}")
+    LOG.info("Bind: $bind")
+    LOG.info("Title: ${config.title}")
+    LOG.info("Prefix: $prefix")
+    LOG.info("ZLib Enable: $enableZlib")
+    LOG.info("WebDav: ${if (config.webdavEnable) "enabled" else "disabled"}")
+
+    if (config.users.isNotEmpty()) {
+        LOG.info("Users:")
+        config.users.forEach {
+            if (it.readOnly)
+                LOG.info("  ${it.login} [Guest]")
+            else
+                LOG.info("  ${it.login} [Administrator]")
+        }
+    }
+
+    val connectionManager = SocketNIOManager()
+    val bufferPool = ByteBufferPool()
+    val server = HttpServer(
+            manager = connectionManager,
+            handler = HttpHandler(config, bufferPool),
+            poolSize = 30,
+            inputBufferSize = 1024 * 1024 * 2,
+            outputBufferSize = 1024 * 1024 * 2,
+            zlibBufferSize = if (enableZlib) DEFAULT_BUFFER_SIZE else 0
+    )
 
     server.bindHTTP(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
-    while (true) {
-        val r = server.update()
+    val executing = AtomicBoolean(true)
+    Signal.listen(Signal.Type.CTRL_C) {
+        executing.value = false
     }
+    while (executing.value) {
+        connectionManager.update()
+    }
+    LOG.info("Stop the Server")
+
+    server.close()
+    connectionManager.close()
+    bufferPool.close()
 }
 
 

@@ -43,12 +43,12 @@ kotlin {
             dependencies {
                 api "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version"
                 api "pw.binom.io:core:$network_version"
-                api "pw.binom.io:server:$network_version"
                 api "pw.binom.io:file:$network_version"
                 api "pw.binom.io:httpServer:$network_version"
                 api "pw.binom.io:job:$network_version"
                 api "pw.binom.io:xml:$network_version"
                 api "pw.binom.io:logger:$network_version"
+                api "pw.binom.io:process:$network_version"
                 api "pw.binom.io:webdav:$network_version"
             }
         }

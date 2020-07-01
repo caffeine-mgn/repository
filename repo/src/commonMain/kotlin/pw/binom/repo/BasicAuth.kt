@@ -1,7 +1,7 @@
 package pw.binom.repo
 
-import pw.binom.Base64
 import pw.binom.asUTF8String
+import pw.binom.base64.Base64
 import pw.binom.io.httpServer.HttpRequest
 
 class BasicAuth(val login: String, val password: String) {
