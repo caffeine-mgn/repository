@@ -191,6 +191,7 @@ fun main(args: Array<String>) {
     server.close()
     connectionManager.close()
     bufferPool.close()
+    Signal.closeAll()
 }
 
 
