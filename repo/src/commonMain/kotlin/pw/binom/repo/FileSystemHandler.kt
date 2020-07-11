@@ -1,13 +1,17 @@
 package pw.binom.repo
 
 import pw.binom.ByteBuffer
+import pw.binom.Console
 import pw.binom.copyTo
 import pw.binom.io.*
 import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
 import pw.binom.io.httpServer.HttpResponse
+import pw.binom.logger.Logger
+import pw.binom.logger.info
 import pw.binom.pool.ObjectPool
+import pw.binom.printStacktrace
 
 private fun contentTypeByExt(ext: String) =
         when (ext.toLowerCase()) {
@@ -22,7 +26,7 @@ private fun contentTypeByExt(ext: String) =
         }
 
 class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val copyBuffer: ObjectPool<ByteBuffer>) : Handler {
-
+    private val log = Logger.getLog("FileSystem")
     private suspend fun getFile(file: FileSystem.Entity<BasicAuth?>, onlyHeader: Boolean, resp: HttpResponse) {
         if (!file.isFile)
             throw IllegalArgumentException("File ${file.path} must be a File")
@@ -88,6 +92,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                     return
                 }
                 "PUT" -> {
+                    log.info("Upload ${req.contextUri}")
                     val path = urlDecode(req.contextUri)
                     fs.get(user, path) ?: fs.new(user, path).use {
                         req.input.copyTo(it, copyBuffer)
@@ -101,6 +106,8 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
         } catch (e: FileSystemAccess.AccessException.UnauthorizedException) {
             resp.resetHeader("WWW-Authenticate", "Basic")
             resp.status = 401
+        } catch (e:Throwable) {
+            e.printStacktrace(Console.std)
         }
 
     }
