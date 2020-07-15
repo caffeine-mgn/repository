@@ -97,6 +97,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                     fs.get(user, path) ?: fs.new(user, path).use {
                         req.input.copyTo(it, copyBuffer)
                     }
+                    log.info("File uploaded ${req.contextUri}")
                     resp.status = 200
                     return
                 }
@@ -106,7 +107,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
         } catch (e: FileSystemAccess.AccessException.UnauthorizedException) {
             resp.resetHeader("WWW-Authenticate", "Basic")
             resp.status = 401
-        } catch (e:Throwable) {
+        } catch (e: Throwable) {
             e.printStacktrace(Console.std)
         }
 

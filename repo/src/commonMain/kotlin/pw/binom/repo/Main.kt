@@ -16,7 +16,7 @@ import pw.binom.process.Signal
 val LOG = Logger.getLog("Main")
 
 class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>) : Handler {
-    val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config))
+    val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config), copyBuffer)
     val dav = WebDavHandler(
             prefix = "${config.prefix}/dav",
             fs = fs,
@@ -29,14 +29,20 @@ class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>
     )
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
-        if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
-            dav.request(
-                    req.withContextURI(req.uri.removePrefix("/dav")),
-                    resp
-            )
-            return
+        try {
+            resp.enableKeepAlive = false
+            if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
+                dav.request(
+                        req.withContextURI(req.uri.removePrefix("/dav")),
+                        resp
+                )
+                return
+            }
+            files.request(req, resp)
+        } catch (e:Throwable) {
+            e.printStacktrace(Console.std)
+            throw e
         }
-        files.request(req, resp)
     }
 }
 
