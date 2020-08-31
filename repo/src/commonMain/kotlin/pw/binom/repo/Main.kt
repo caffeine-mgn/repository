@@ -39,7 +39,7 @@ class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>
                 return
             }
             files.request(req, resp)
-        } catch (e:Throwable) {
+        } catch (e: Throwable) {
             e.printStacktrace(Console.std)
             throw e
         }
@@ -66,6 +66,7 @@ private fun printHelp() {
 
         Platform.MACOS,
         Platform.LINUX_64,
+        Platform.LINUX_ARM_64,
         Platform.LINUX_ARM_32 -> "/var/repository"
 
         Platform.JVM,
@@ -174,7 +175,7 @@ fun main(args: Array<String>) {
     }
 
     val connectionManager = SocketNIOManager()
-    val bufferPool = ByteBufferPool()
+    val bufferPool = ByteBufferPool(10)
     val server = HttpServer(
             manager = connectionManager,
             handler = HttpHandler(config, bufferPool),
@@ -185,19 +186,14 @@ fun main(args: Array<String>) {
     )
 
     server.bindHTTP(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
-    val executing = AtomicBoolean(true)
-    Signal.listen(Signal.Type.CTRL_C) {
-        executing.value = false
-    }
-    while (executing.value) {
-        connectionManager.update()
+    while (!Signal.isInterrupted) {
+        connectionManager.update(1000)
     }
     LOG.info("Stop the Server")
 
     server.close()
     connectionManager.close()
     bufferPool.close()
-    Signal.closeAll()
 }
 
 

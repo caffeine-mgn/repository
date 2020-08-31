@@ -12,6 +12,8 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.pool.ObjectPool
 import pw.binom.printStacktrace
+import kotlin.time.ExperimentalTime
+import kotlin.time.measureTime
 
 private fun contentTypeByExt(ext: String) =
         when (ext.toLowerCase()) {
@@ -72,6 +74,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
         }
     }
 
+    @OptIn(ExperimentalTime::class)
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
         try {
             val user = BasicAuth.get(req)
@@ -82,6 +85,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                         resp.status = 404
                         return
                     }
+                    resp.enableKeepAlive = false
                     resp.status = 200
                     val onlyHeader = req.method == "HEAD"
                     if (e.isFile) {
@@ -92,19 +96,24 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                     return
                 }
                 "PUT" -> {
-                    log.info("Upload ${req.contextUri}")
-                    val path = urlDecode(req.contextUri)
-                    fs.get(user, path) ?: fs.new(user, path).use {
-                        req.input.copyTo(it, copyBuffer)
+                    val time = measureTime {
+                        log.info("Upload ${req.contextUri}")
+                        val path = urlDecode(req.contextUri)
+                        fs.get(user, path) ?: fs.new(user, path).use {
+                            req.input.copyTo(it, copyBuffer)
+                        }
                     }
-                    log.info("File uploaded ${req.contextUri}")
+                    log.info("File uploaded ${req.contextUri}, time: $time")
+                    resp.enableKeepAlive = false
                     resp.status = 200
+                    resp.complete()
                     return
                 }
             }
         } catch (e: FileSystemAccess.AccessException.ForbiddenException) {
             resp.status = 403
         } catch (e: FileSystemAccess.AccessException.UnauthorizedException) {
+            println("UnauthorizedException")
             resp.resetHeader("WWW-Authenticate", "Basic")
             resp.status = 401
         } catch (e: Throwable) {
