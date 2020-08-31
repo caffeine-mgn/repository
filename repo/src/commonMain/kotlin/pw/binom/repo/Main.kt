@@ -1,7 +1,6 @@
 package pw.binom.repo
 
 import pw.binom.*
-import pw.binom.atomic.AtomicBoolean
 import pw.binom.io.file.File
 import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.httpServer.*
@@ -30,7 +29,9 @@ class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>
 
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
         try {
-            resp.enableKeepAlive = false
+
+
+
             if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
                 dav.request(
                         req.withContextURI(req.uri.removePrefix("/dav")),

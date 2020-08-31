@@ -85,7 +85,6 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                         resp.status = 404
                         return
                     }
-                    resp.enableKeepAlive = false
                     resp.status = 200
                     val onlyHeader = req.method == "HEAD"
                     if (e.isFile) {
@@ -99,12 +98,11 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                     val time = measureTime {
                         log.info("Upload ${req.contextUri}")
                         val path = urlDecode(req.contextUri)
-                        fs.get(user, path) ?: fs.new(user, path).use {
+                        fs.new(user, path).use {
                             req.input.copyTo(it, copyBuffer)
                         }
                     }
                     log.info("File uploaded ${req.contextUri}, time: $time")
-                    resp.enableKeepAlive = false
                     resp.status = 200
                     resp.complete()
                     return
