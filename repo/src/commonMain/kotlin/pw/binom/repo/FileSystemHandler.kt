@@ -1,7 +1,6 @@
 package pw.binom.repo
 
 import pw.binom.ByteBuffer
-import pw.binom.Console
 import pw.binom.copyTo
 import pw.binom.io.*
 import pw.binom.io.http.Headers
@@ -11,7 +10,6 @@ import pw.binom.io.httpServer.HttpResponse
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.pool.ObjectPool
-import pw.binom.printStacktrace
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
@@ -82,6 +80,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
                 "HEAD", "GET" -> {
                     val e = fs.get(user, urlDecode(req.contextUri))
                     if (e == null) {
+                        println("NOT FOUND ${req.method} ${req.contextUri}")
                         resp.status = 404
                         return
                     }
@@ -115,7 +114,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val c
             resp.resetHeader("WWW-Authenticate", "Basic")
             resp.status = 401
         } catch (e: Throwable) {
-            e.printStacktrace(Console.std)
+            e.printStackTrace()
         }
 
     }
