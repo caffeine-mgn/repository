@@ -9,10 +9,10 @@ import pw.binom.webdav.server.AbstractWebDavHandler
 
 class WebDavHandler(
         val prefix: String,
-        val fs: FileSystem<BasicAuth?>,
+        val fs: FileSystem,
         override val bufferPool: ObjectPool<ByteBuffer>
-) : AbstractWebDavHandler<BasicAuth?>() {
-    override fun getFS(req: HttpRequest, resp: HttpResponse): FileSystem<BasicAuth?> = fs
+) : AbstractWebDavHandler<BasicAuth>() {
+    override fun getFS(req: HttpRequest, resp: HttpResponse): FileSystem = fs
 
     override fun getGlobalURI(req: HttpRequest): String {
         return prefix
@@ -20,5 +20,5 @@ class WebDavHandler(
 
     override fun getLocalURI(req: HttpRequest, globalURI: String): String = globalURI.removePrefix(prefix)
 
-    override fun getUser(req: HttpRequest, resp: HttpResponse): BasicAuth? = BasicAuth.get(req)
+    override fun getUser(req: HttpRequest, resp: HttpResponse): BasicAuth = BasicAuth.get(req)
 }
