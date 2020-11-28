@@ -25,9 +25,9 @@ private fun contentTypeByExt(ext: String) =
             else -> "application/octet-stream"
         }
 
-class FileSystemHandler(val title: String, val fs: FileSystem<BasicAuth?>, val copyBuffer: ObjectPool<ByteBuffer>) : Handler {
-    private val log = Logger.getLog("FileSystem")
-    private suspend fun getFile(file: FileSystem.Entity<BasicAuth?>, onlyHeader: Boolean, resp: HttpResponse) {
+class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: ObjectPool<ByteBuffer>) : Handler {
+    private val log = Logger.getLogger("FileSystem")
+    private suspend fun getFile(file: FileSystem.Entity, onlyHeader: Boolean, resp: HttpResponse) {
         if (!file.isFile)
             throw IllegalArgumentException("File ${file.path} must be a File")
 
