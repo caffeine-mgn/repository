@@ -45,7 +45,7 @@ kotlin {
                 api "pw.binom.io:core:$network_version"
                 api "pw.binom.io:file:$network_version"
                 api "pw.binom.io:httpServer:$network_version"
-                api "pw.binom.io:job:$network_version"
+                api "pw.binom.io:concurrency:$network_version"
                 api "pw.binom.io:xml:$network_version"
                 api "pw.binom.io:logger:$network_version"
                 api "pw.binom.io:process:$network_version"

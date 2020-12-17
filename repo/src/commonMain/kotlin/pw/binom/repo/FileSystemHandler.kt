@@ -3,6 +3,7 @@ package pw.binom.repo
 import pw.binom.ByteBuffer
 import pw.binom.copyTo
 import pw.binom.io.*
+import pw.binom.io.http.BasicAuth
 import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
@@ -12,18 +13,19 @@ import pw.binom.logger.info
 import pw.binom.pool.ObjectPool
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
+import pw.binom.io.httpServer.*
 
 private fun contentTypeByExt(ext: String) =
-        when (ext.toLowerCase()) {
-            "zip" -> "application/zip"
-            "pom", "xml" -> "application/xml"
-            "svg" -> "image/svg+xml"
-            "js" -> "application/javascript"
-            "png" -> "image/png"
-            "webp" -> "image/webp"
-            "md" -> "text/markdown"
-            else -> "application/octet-stream"
-        }
+    when (ext.toLowerCase()) {
+        "zip" -> "application/zip"
+        "pom", "xml" -> "application/xml"
+        "svg" -> "image/svg+xml"
+        "js" -> "application/javascript"
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "md" -> "text/markdown"
+        else -> "application/octet-stream"
+    }
 
 class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: ObjectPool<ByteBuffer>) : Handler {
     private val log = Logger.getLogger("FileSystem")
@@ -46,73 +48,79 @@ class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: O
             }
     }
 
-    private suspend fun getDirList(user: BasicAuth?, onlyHeader: Boolean, file: FileSystem.Entity<BasicAuth?>, resp: HttpResponse) {
-        if (file.isFile)
-            throw IllegalArgumentException("File ${file.path} must be a Directory")
-        resp.status = 200
+    private suspend fun getDirList(user: BasicAuth?, onlyHeader: Boolean, file: FileSystem.Entity, resp: HttpResponse) {
+        file.fileSystem.isSupportUserSystem
+        file.fileSystem.useUser(user) {
+            if (file.isFile)
+                throw IllegalArgumentException("File ${file.path} must be a Directory")
+            resp.status = 200
 
-        resp.resetHeader(Headers.CONTENT_TYPE, "text/html; charset=UTF-8")
-        if (!onlyHeader) {
-            val sb = resp.complete().utf8Appendable()
-            sb.append("<html>")
+            resp.resetHeader(Headers.CONTENT_TYPE, "text/html; charset=UTF-8")
+            if (!onlyHeader) {
+                val sb = resp.complete().utf8Appendable()
+                sb.append("<html>")
                     .append("<b>$title</b>").append("<hr/>")
-            sb.append("<table>")
+                sb.append("<table>")
                     .append("<tr><td><b>Name</b></td><td><b>Size</b></td></tr>")
-            fs.getDir(user, file.path)!!.forEach {
-                sb.append("<tr>")
-                if (it.isFile)
-                    sb.append("<td><a href=\"${urlEncode(it.name)}\">").append(it.name).append("</a></td><td>").append(it.length.toString()).append("</td>")
-                else
-                    sb.append("<td><a href=\"${urlEncode(it.name)}/\">").append(it.name).append("</a></td><td></td>")
-                sb.append("</tr>")
-            }
-            sb.append("</table>")
+                fs.getDir(file.path)!!.forEach {
+                    sb.append("<tr>")
+                    if (it.isFile)
+                        sb.append("<td><a href=\"${urlEncode(it.name)}\">").append(it.name).append("</a></td><td>")
+                            .append(it.length.toString()).append("</td>")
+                    else
+                        sb.append("<td><a href=\"${urlEncode(it.name)}/\">").append(it.name)
+                            .append("</a></td><td></td>")
+                    sb.append("</tr>")
+                }
+                sb.append("</table>")
 
-            sb.append("</html>")
+                sb.append("</html>")
+            }
         }
     }
 
     @OptIn(ExperimentalTime::class)
     override suspend fun request(req: HttpRequest, resp: HttpResponse) {
         try {
-            val user = BasicAuth.get(req)
-            when (req.method) {
-                "HEAD", "GET" -> {
-                    val e = fs.get(user, urlDecode(req.contextUri))
-                    if (e == null) {
-                        println("NOT FOUND ${req.method} ${req.contextUri}")
-                        resp.status = 404
-                        return
-                    }
-                    resp.status = 200
-                    val onlyHeader = req.method == "HEAD"
-                    if (e.isFile) {
-                        getFile(file = e, onlyHeader = onlyHeader, resp = resp)
-                    } else {
-                        getDirList(user = user, onlyHeader = onlyHeader, file = e, resp = resp)
-                    }
-                    return
-                }
-                "PUT" -> {
-                    val time = measureTime {
-                        log.info("Upload ${req.contextUri}")
-                        val path = urlDecode(req.contextUri)
-                        fs.new(user, path).use {
-                            req.input.copyTo(it, copyBuffer)
+            val user = req.basicAuth
+            fs.useUser(user) {
+                when (req.method) {
+                    "HEAD", "GET" -> {
+                        val e = fs.get(urlDecode(req.contextUri))
+                        if (e == null) {
+                            println("NOT FOUND ${req.method} ${req.contextUri}")
+                            resp.status = 404
+                            return@useUser
                         }
+                        resp.status = 200
+                        val onlyHeader = req.method == "HEAD"
+                        if (e.isFile) {
+                            getFile(file = e, onlyHeader = onlyHeader, resp = resp)
+                        } else {
+                            getDirList(user = user, onlyHeader = onlyHeader, file = e, resp = resp)
+                        }
+                        return@useUser
                     }
-                    log.info("File uploaded ${req.contextUri}, time: $time")
-                    resp.status = 200
-                    resp.complete()
-                    return
+                    "PUT" -> {
+                        val time = measureTime {
+                            log.info("Upload ${req.contextUri}")
+                            val path = urlDecode(req.contextUri)
+                            fs.new(path).use {
+                                req.input.copyTo(it, copyBuffer)
+                            }
+                        }
+                        log.info("File uploaded ${req.contextUri}, time: $time")
+                        resp.status = 200
+                        resp.complete()
+                        return@useUser
+                    }
                 }
             }
         } catch (e: FileSystemAccess.AccessException.ForbiddenException) {
             resp.status = 403
         } catch (e: FileSystemAccess.AccessException.UnauthorizedException) {
             println("UnauthorizedException")
-            resp.resetHeader("WWW-Authenticate", "Basic")
-            resp.status = 401
+            resp.requestBasicAuth()
         } catch (e: Throwable) {
             e.printStackTrace()
         }

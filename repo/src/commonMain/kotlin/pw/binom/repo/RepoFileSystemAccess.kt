@@ -4,6 +4,7 @@ import pw.binom.io.FileSystemAccess
 import pw.binom.io.file.File
 import pw.binom.io.file.isExist
 import pw.binom.io.file.name
+import pw.binom.io.http.BasicAuth
 
 class RepoFileSystemAccess(val config: Config) : FileSystemAccess<BasicAuth?> {
     private fun checkRead(user: BasicAuth?) {

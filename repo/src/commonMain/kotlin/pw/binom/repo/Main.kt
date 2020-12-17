@@ -4,18 +4,19 @@ import pw.binom.*
 import pw.binom.io.file.File
 import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.httpServer.*
-import pw.binom.io.socket.nio.SocketNIOManager
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.logger.warn
+import pw.binom.network.NetworkDispatcher
 import pw.binom.pool.ObjectPool
 import pw.binom.process.Signal
 
-val LOG = Logger.getLog("Main")
+val LOG = Logger.getLogger("Main")
 
 class HttpHandler(private val config: Config, copyBuffer: ObjectPool<ByteBuffer>) : Handler {
-    val fs = LocalFileSystem(config.root, RepoFileSystemAccess(config), copyBuffer)
+    //RepoFileSystemAccess(config)
+    val fs = LocalFileSystem(config.root, copyBuffer)
     val dav = WebDavHandler(
             prefix = "${config.prefix}/dav",
             fs = fs,
@@ -175,7 +176,7 @@ fun main(args: Array<String>) {
             }
         }
 
-        val connectionManager = SocketNIOManager()
+        val connectionManager = NetworkDispatcher()
         val bufferPool = ByteBufferPool(10)
         val server = HttpServer(
                 manager = connectionManager,
@@ -188,7 +189,7 @@ fun main(args: Array<String>) {
 
         server.bindHTTP(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
         while (!Signal.isInterrupted) {
-            connectionManager.update(1000)
+            connectionManager.select(1000)
         }
         LOG.info("Stop the Server")
 
