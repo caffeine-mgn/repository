@@ -60,7 +60,6 @@ class Config(
 )
 
 private fun printHelp() {
-
     val simplePathToFile = when (Environment.platform) {
         Platform.MINGW_X86,
         Platform.MINGW_X64 -> "D:\\repository"
@@ -72,6 +71,7 @@ private fun printHelp() {
 
         Platform.JVM,
         Platform.JS -> ""
+        else->TODO()
     }
 
     println("Commands:")

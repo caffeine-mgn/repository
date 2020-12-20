@@ -43,6 +43,7 @@ kotlin {
             dependencies {
                 api "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version"
                 api "pw.binom.io:core:$network_version"
+                api "pw.binom.io:env:$network_version"
                 api "pw.binom.io:file:$network_version"
                 api "pw.binom.io:httpServer:$network_version"
                 api "pw.binom.io:concurrency:$network_version"
@@ -115,7 +116,7 @@ task runMainExecutableJvm(dependsOn: jvmJar, group: "run") {
 
     doLast {
         def args1 = [jvmJar.archiveFile.get()]
-        args1.addAll(System.getenv("ARGS")?.split(" ") ?: ["-bind=:9090", "-admin=admin:admin", "-allowAnonymous=false", "-root=/home/subochev/Загрузки"])
+        args1.addAll(System.getenv("ARGS")?.split(" ") ?: ["-bind=:9090", "-admin=admin:admin", "-allowAnonymous=false", "-root=C:\\TEMP\\6"])
         javaexec { main = "-jar"; args args1 }
     }
 }
