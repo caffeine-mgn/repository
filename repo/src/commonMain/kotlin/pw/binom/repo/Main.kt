@@ -8,6 +8,7 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.logger.warn
+import pw.binom.network.NetworkAddress
 import pw.binom.network.NetworkDispatcher
 import pw.binom.pool.ObjectPool
 import pw.binom.process.Signal
@@ -179,15 +180,18 @@ fun main(args: Array<String>) {
         val connectionManager = NetworkDispatcher()
         val bufferPool = ByteBufferPool(10)
         val server = HttpServer(
-                manager = connectionManager,
-                handler = HttpHandler(config, bufferPool),
-                poolSize = 30,
-                inputBufferSize = 1024 * 1024 * 2,
-                outputBufferSize = 1024 * 1024 * 2,
-                zlibBufferSize = if (enableZlib) DEFAULT_BUFFER_SIZE else 0
+            manager = connectionManager,
+            handler = HttpHandler(config, bufferPool),
+            poolSize = 30,
+            inputBufferSize = 1024 * 1024 * 2,
+            outputBufferSize = 1024 * 1024 * 2,
+            zlibBufferSize = if (enableZlib) DEFAULT_BUFFER_SIZE else 0
         )
 
-        server.bindHTTP(host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0", port = bind.port)
+        server.bindHTTP(NetworkAddress.Immutable(
+            host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0",
+            port = bind.port
+        ))
         while (!Signal.isInterrupted) {
             connectionManager.select(1000)
         }
