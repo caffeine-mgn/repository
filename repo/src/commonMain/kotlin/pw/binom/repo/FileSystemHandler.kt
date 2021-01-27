@@ -1,6 +1,9 @@
 package pw.binom.repo
 
 import pw.binom.ByteBuffer
+import pw.binom.DEFAULT_BUFFER_SIZE
+import pw.binom.concurrency.asReference
+import pw.binom.concurrency.free
 import pw.binom.copyTo
 import pw.binom.io.*
 import pw.binom.io.http.BasicAuth
@@ -14,6 +17,8 @@ import pw.binom.pool.ObjectPool
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import pw.binom.io.httpServer.*
+import pw.binom.network.execute
+import pw.binom.network.network
 
 private fun contentTypeByExt(ext: String) =
     when (ext.toLowerCase()) {
@@ -42,10 +47,25 @@ class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: O
         resp.resetHeader(Headers.CONTENT_LENGTH, file.length.toString())
         resp.resetHeader(Headers.CONTENT_TYPE, contentTypeByExt(file.extension))
 
-        if (!onlyHeader)
-            file.read()!!.use {
-                it.copyTo(resp.complete(), copyBuffer)
+        if (!onlyHeader) {
+            val outStream = resp.complete().asReference()
+            execute {
+                file.read()!!.use {
+                    val buffer = ByteBuffer.alloc(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val r = it.read(buffer)
+                        if (r == 0) {
+                            break
+                        }
+                        network {
+                            outStream.value.write(buffer)
+                            outStream.value.flush()
+                        }
+                    }
+                }
             }
+            outStream.free()
+        }
     }
 
     private suspend fun getDirList(user: BasicAuth?, onlyHeader: Boolean, file: FileSystem.Entity, resp: HttpResponse) {
