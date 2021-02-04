@@ -1,5 +1,6 @@
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.kotlin.multiplatform'
+apply plugin: 'kotlinx-serialization'
 kotlin {
 
 
@@ -41,16 +42,21 @@ kotlin {
 
         commonMain {
             dependencies {
-                api "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version"
-                api "pw.binom.io:core:$network_version"
-                api "pw.binom.io:env:$network_version"
-                api "pw.binom.io:file:$network_version"
-                api "pw.binom.io:httpServer:$network_version"
-                api "pw.binom.io:concurrency:$network_version"
-                api "pw.binom.io:xml:$network_version"
-                api "pw.binom.io:logger:$network_version"
-                api "pw.binom.io:process:$network_version"
-                api "pw.binom.io:webdav:$network_version"
+                api("org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version")
+                api("pw.binom.io:core:$network_version")
+                api("pw.binom.io:env:$network_version")
+                api("pw.binom.io:flux:$network_version")
+                api("pw.binom.io:strong:$network_version")
+                api("pw.binom.io:file:$network_version")
+                api("pw.binom.io:httpServer:$network_version")
+                api("pw.binom.io:concurrency:$network_version")
+                api("pw.binom.io:xml:$network_version")
+                api("pw.binom.io:logger:$network_version")
+                api("pw.binom.io:process:$network_version")
+                api("pw.binom.io:webdav:$network_version")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-core:$serialization_version")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization_version")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-properties:$serialization_version")
             }
         }
 
