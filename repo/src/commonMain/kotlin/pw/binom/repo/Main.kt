@@ -3,18 +3,14 @@ package pw.binom.repo
 import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import pw.binom.*
+import pw.binom.concurrency.WorkerPool
 import pw.binom.flux.RootRouter
-import pw.binom.flux.postHandle
 import pw.binom.flux.wrap
-import pw.binom.io.bufferedAsciiInputReader
+import pw.binom.io.bufferedAsciiReader
 import pw.binom.io.file.File
-import pw.binom.io.file.LocalFileSystem
 import pw.binom.io.file.read
-import pw.binom.io.http.BasicAuth
-import pw.binom.io.http.Headers
-import pw.binom.io.httpClient.AsyncHttpClient
-import pw.binom.io.httpClient.use
 import pw.binom.io.httpServer.*
 import pw.binom.io.readText
 import pw.binom.io.use
@@ -28,72 +24,6 @@ import pw.binom.process.Signal
 import pw.binom.strong.Strong
 
 val LOG = Logger.getLogger("Main")
-
-class HttpHandler(private val config: Config, copyBuffer: ByteBufferPool) : Handler {
-    //RepoFileSystemAccess(config)
-    val fs = LocalFileSystem(config.root, copyBuffer)
-    val dav = WebDavHandler(
-        prefix = "${config.prefix}/dav",
-        fs = fs,
-        bufferPool = copyBuffer
-    )
-    val files = FileSystemHandler(
-        title = config.title,
-        fs = fs,
-        copyBuffer = copyBuffer
-    )
-    val docker = DockerHandler(config, copyBuffer)
-
-    override suspend fun request(req: HttpRequest, resp: HttpResponse) {
-        println("${req.method} ${urlDecode(req.uri)}")
-        try {
-            if (req.uri == "/v2" || req.uri.startsWith("/v2/")) {
-                docker.request(
-                    req.withContextURI(req.uri.removePrefix("/v2")),
-                    resp
-                )
-                return
-            }
-
-
-            if (config.webdavEnable && (req.uri == "/dav" || req.uri.startsWith("/dav/"))) {
-                dav.request(
-                    req.withContextURI(req.uri.removePrefix("/dav")),
-                    resp
-                )
-                return
-            }
-
-            val sb = StringBuilder("curl -X ${req.method} https://images.binom.pw${req.uri} -H 'Host:images.binom.pw'")
-            req.headers.forEach { item ->
-                when (item.key) {
-                    "X-Forwarded-Proto", "Host", "Accept-Encoding", "X-Forwarded-For" -> return@forEach
-                }
-                item.value.forEach {
-                    sb.append(" -H '${item.key}: $it'")
-                }
-            }
-            println(sb)
-
-            files.request(req, resp)
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            throw e
-        }
-    }
-}
-
-class User(val login: String, val password: String, val readOnly: Boolean)
-
-class Config(
-        val root: File,
-        val allowRewriting: Boolean,
-        val allowGuest: Boolean,
-        val users: List<User>,
-        val prefix: String,
-        val webdavEnable: Boolean,
-        val title: String
-)
 
 private fun printHelp() {
     val simplePathToFile = when (Environment.platform) {
@@ -124,61 +54,6 @@ private fun printHelp() {
     println("-h    Shows this help")
 }
 
-fun testUpload(server: String) {
-    val nd = NetworkDispatcher()
-
-    val client = AsyncHttpClient(nd)
-    val auth = BasicAuth("ci", "11")
-    val jj = nd.async {
-        val url = URL("https://$server.binom.pw:443/v2/test2/test/blobs/uploads/")
-//        val url = URL("http://127.0.0.1:7001/v2/test2/test/blobs/uploads/")
-        val r = client.request("POST", url)
-        r.use(auth)
-        val resp = r.response()
-        resp.headers.forEach { e ->
-            e.value.forEach {
-                println("${e.key}: $it")
-            }
-        }
-        println("Code: ${resp.responseCode}")
-        val location = resp.headers[Headers.LOCATION]!!.first()
-        val patchUrl = url.newURI(location)
-        println("patchUrl: [$patchUrl]")
-        println("\n\n\n")
-        val r2 = client.request("PATCH", patchUrl)
-        r2.use(auth)
-        val s =
-            File("C:\\TEMP\\8\\test_img").read()
-                .use {
-                    val s = r2.upload()
-                    it.copyTo(s)
-                    s
-                }.response()
-        println("Response Headers:")
-        s.headers.forEach { e ->
-            e.value.forEach {
-                println("${e.key}: $it")
-            }
-        }
-
-        println("Code: ${resp.responseCode}")
-        println("Error: ${resp.bufferedAsciiInputReader().readText()}")
-    }
-
-    while (!Signal.isInterrupted) {
-        if (jj.isDone) {
-            if (!!jj.isSuccess) {
-                println("All is OK!")
-                break
-            } else {
-                jj.exceptionOrNull!!.printStackTrace()
-            }
-            return
-        }
-        nd.select(1000)
-    }
-}
-
 @Polymorphic
 @Serializable
 sealed class RepositoryConfig {
@@ -186,9 +61,9 @@ sealed class RepositoryConfig {
     @Serializable
     @SerialName("docker")
     data class Docker(
+        val name: String,
         val allowRewrite: Boolean,
         val allowAppend: Boolean,
-        val path: String,
         val urlPrefix: String
     ) : RepositoryConfig()
 
@@ -196,8 +71,9 @@ sealed class RepositoryConfig {
     @Serializable
     @SerialName("maven")
     data class Maven(
+        val name: String,
         val allowRewrite: Boolean,
-        val path: String,
+        val allowAppend: Boolean,
         val urlPrefix: String
     ) : RepositoryConfig()
 }
@@ -208,7 +84,7 @@ sealed class UserManagementConfig {
     @Polymorphic
     @Serializable
     @SerialName("embedded")
-    data class Embedded(val users: List<User>) : UserManagementConfig() {
+    data class Embedded(val users: List<User> = emptyList()) : UserManagementConfig() {
         @Serializable
         data class User(val login: String, val password: String)
     }
@@ -226,21 +102,37 @@ sealed class UserManagementConfig {
 class BindConfig(val ip: String, val port: Int)
 
 @Serializable
-class ConfigObj(
-    val repositories: List<RepositoryConfig>,
-    val userManagement: List<UserManagementConfig>,
-    val bind: List<BindConfig>
+sealed class BlobStorage {
+    @Serializable
+    @SerialName("fs")
+    data class FileBlobStorage(val root: String, val id: String) : BlobStorage()
+}
+
+@Serializable
+class Config(
+    val dataDir: String,
+    val copyBufferSize: Int,
+    val repositories: List<RepositoryConfig> = emptyList(),
+    val userManagement: List<UserManagementConfig> = emptyList(),
+    val blobStorages: List<BlobStorage> = emptyList(),
+    val bind: List<BindConfig> = emptyList()
 )
 
 fun main(args: Array<String>) {
 
-    val config = ConfigObj(
+    val config = Config(
         repositories = listOf(
             RepositoryConfig.Docker(
                 allowRewrite = true,
                 allowAppend = true,
-                path = "C:\\TEMP\\8",
                 urlPrefix = "/myrepo",
+                name = "images",
+            ),
+            RepositoryConfig.Maven(
+                allowRewrite = true,
+                allowAppend = true,
+                name = "binom",
+                urlPrefix = "/binom",
             )
         ),
         userManagement = listOf(
@@ -249,17 +141,54 @@ fun main(args: Array<String>) {
                     UserManagementConfig.Embedded.User(
                         login = "admin",
                         password = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-                    )
+                    ),
+                    UserManagementConfig.Embedded.User(
+                        login = "ci",
+                        password = "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+                    ),
                 )
             )
         ),
         bind = listOf(
             BindConfig(
                 ip = "0.0.0.0",
-                port = 7001
+                port = 7002
             )
-        )
+        ),
+        blobStorages = listOf(
+            BlobStorage.FileBlobStorage(
+                root = "C:\\TEMP\\11\\blobs",
+                id = "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
+            )
+        ),
+        dataDir = "C:\\TEMP\\11\\repositories",
+        copyBufferSize = DEFAULT_BUFFER_SIZE
     )
+    val configs = HashMap<String, String>()
+    args.forEach {
+        if (it.startsWith("-config=")) {
+            val configFile = File(it.removePrefix("-config="))
+            if (configFile.isFile) {
+                throw RuntimeException("Can't find config file ${configFile.path}")
+            }
+            configFile.read().bufferedAsciiReader().use {
+                it.readText().split('\n').forEach {
+                    val items = it.split('=', limit = 2)
+                    configs[items[0]] = items[1]
+                }
+            }
+        }
+    }
+    println("Config:\n")
+    println(Json.encodeToString(Config.serializer(), config))
+
+    args.forEach {
+        if (it.startsWith("-") && "=" in it && !it.startsWith("-config=")) {
+            val items = it.removePrefix("-").split('=', limit = 2)
+            configs[items[0]] = items[1]
+        }
+    }
+//    Json.decodeFromString(ConfigObj.serializer(), configs)
     Logger.global.handler = Logger.consoleHandler
     val webLogger = Logger.getLogger("http")
 
@@ -289,16 +218,17 @@ fun main(args: Array<String>) {
 
     val server = HttpServer(
         manager = connectionManager,
-        handler = rootRouter,
+        handler = SecurityRouter(rootRouter),
         poolSize = 30,
         inputBufferSize = 1024 * 1024 * 2,
         outputBufferSize = 1024 * 1024 * 2,
-        zlibBufferSize = 0
+        zlibBufferSize = 0,
+        executor = WorkerPool(10)
     )
 
 
     try {
-        val initFuture = async2 {
+        val initFuture = connectionManager.async {
             Strong.create(
                 StrongConfiguration.mainConfiguration(config),
                 Strong.config { strong ->
@@ -317,105 +247,6 @@ fun main(args: Array<String>) {
                 }).start()
         }
 
-//        if (args.any { it == "-h" }) {
-//            printHelp()
-//            return
-//        }
-//
-//        val title = args.getParam("-title") ?: "Binom Repository Server"
-//        val root = (args.getParam("-root") ?: "./").let { File(it) }
-//        val allowRewriting = args.getParam("-allowRewriting")?.let { it == "true" || it == "1" } ?: false
-//        val enableZlib = args.getParam("-zlib")?.let { it == "true" || it == "1" } ?: false
-//        val allowAnonymous = args.getParam("-allowAnonymous")?.let { it == "true" || it == "1" } ?: false
-//        val webdavEnable = args.getParam("-webdav")?.let { it == "true" || it == "1" } ?: false
-//        val prefix = args.getParam("-prefix") ?: ""
-//        val users = ArrayList<User>()
-//        val existUsers = HashSet<String>()
-//
-//        args.getParams("-admin").map {
-//            val items = it.split(':', limit = 2)
-//            if (items[0] in existUsers) {
-//                LOG.warn("User \"${items[0]}\" already exist")
-//                return@map
-//            }
-//            existUsers += items[0]
-//            users += User(login = items[0], password = items[1], readOnly = false)
-//        }
-//
-//        args.getParams("-guest").map {
-//            val items = it.split(':', limit = 2)
-//            if (items[0] in existUsers) {
-//                LOG.warn("User \"${items[0]}\" already exist")
-//                return@map
-//            }
-//            existUsers += items[0]
-//            users += User(login = items[0], password = items[1], readOnly = true)
-//        }
-//
-//        if (!root.isDirectory) {
-//            println("Can't find root directory $root")
-//            return
-//        }
-//
-//        val bind = args.getParam("-bind")?.let {
-//            val addr = RemoteAddr.parse(it)
-//            if (addr == null) {
-//                LOG.severe("-bind argument \"$it\" invalid")
-//                return
-//            }
-//            addr
-//        }
-//
-//        if (bind == null) {
-//            println("Invalid -bind argument")
-//            printHelp()
-//            return
-//        }
-//
-//        val config = Config(
-//                root = root,
-//                allowGuest = allowAnonymous,
-//                allowRewriting = allowRewriting,
-//                users = users,
-//                prefix = prefix,
-//                webdavEnable = webdavEnable,
-//                title = title
-//        )
-//
-//        LOG.info("Start Binom Repository")
-//        LOG.info("Root directory: ${config.root.path}")
-//        LOG.info("Allow Rewriting: ${config.allowRewriting}")
-//        LOG.info("Allow Anonymous Access: ${config.allowGuest}")
-//        LOG.info("Bind: $bind")
-//        LOG.info("Title: ${config.title}")
-//        LOG.info("Prefix: $prefix")
-//        LOG.info("ZLib Enable: $enableZlib")
-//        LOG.info("WebDav: ${if (config.webdavEnable) "enabled" else "disabled"}")
-//
-//        if (config.users.isNotEmpty()) {
-//            LOG.info("Users:")
-//            config.users.forEach {
-//                if (it.readOnly)
-//                    LOG.info("  ${it.login} [Guest]")
-//                else
-//                    LOG.info("  ${it.login} [Administrator]")
-//            }
-//        }
-//
-//        val bufferPool = ByteBufferPool(10)
-//        val server = HttpServer(
-//            manager = connectionManager,
-//            handler = HttpHandler(config, bufferPool),
-//            poolSize = 30,
-//            inputBufferSize = 1024 * 1024 * 2,
-//            outputBufferSize = 1024 * 1024 * 2,
-//            zlibBufferSize = if (enableZlib) DEFAULT_BUFFER_SIZE else 0
-//        )
-
-//        server.bindHTTP(NetworkAddress.Immutable(
-//            host = bind.host.takeIf { it.isNotBlank() } ?: "0.0.0.0",
-//            port = bind.port
-//        ))
         while (!Signal.isInterrupted) {
             if (initFuture.isDone && initFuture.isFailure) {
                 throw initFuture.exceptionOrNull!!
@@ -439,6 +270,12 @@ fun Strong.initializing(func: suspend () -> Unit) = define(object : Strong.Initi
 
 fun Strong.linking(func: suspend () -> Unit) = define(object : Strong.LinkingBean {
     override suspend fun link() {
+        func()
+    }
+})
+
+fun Strong.destroying(func: suspend () -> Unit) = define(object : Strong.DestroyableBean {
+    override suspend fun destroy() {
         func()
     }
 })

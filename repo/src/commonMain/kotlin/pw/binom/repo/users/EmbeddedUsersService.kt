@@ -3,6 +3,7 @@ package pw.binom.repo.users
 import pw.binom.io.Sha256MessageDigest
 import pw.binom.io.use
 import pw.binom.repo.UserManagementConfig
+import pw.binom.repo.repositories.Repository
 import pw.binom.repo.toHex
 import pw.binom.wrap
 
@@ -22,5 +23,11 @@ class EmbeddedUsersService(val config: UserManagementConfig.Embedded) : UsersSer
         }
         return null
     }
+
+    override fun allowAccess(
+        repository: Repository,
+        user: UsersService.User?,
+        operation: UsersService.RepositoryOperationType
+    ): Boolean = true
 
 }

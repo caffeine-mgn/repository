@@ -1,15 +1,31 @@
 package pw.binom.repo
 
+import pw.binom.UUID
 import pw.binom.flux.Route
 import pw.binom.flux.get
 import pw.binom.io.file.File
-import pw.binom.repo.repositories.DockerRepositoryService
+import pw.binom.io.file.relative
+import pw.binom.repo.repositories.docker.DockerRepositoryService
+import pw.binom.repo.repositories.FileBlobStorageService
+import pw.binom.repo.repositories.maven.MavenRepositoryService
 import pw.binom.repo.users.EmbeddedUsersService
 import pw.binom.repo.users.LDAPUsersService
 import pw.binom.strong.Strong
 
 object StrongConfiguration {
-    fun mainConfiguration(config: ConfigObj) = Strong.config { strong ->
+    fun mainConfiguration(config: Config) = Strong.config { strong ->
+
+        config.blobStorages.forEach {
+            val blobService = when (it) {
+                is BlobStorage.FileBlobStorage -> FileBlobStorageService(
+                    root = File(it.root),
+                    id = UUID.fromString(it.id),
+                    bufferSize = config.copyBufferSize
+                )
+            }
+            strong.define(blobService)
+        }
+
         config.userManagement.forEach {
             val usersService = when (it) {
                 is UserManagementConfig.Embedded -> EmbeddedUsersService(it)
@@ -23,9 +39,17 @@ object StrongConfiguration {
                 is RepositoryConfig.Docker -> DockerRepositoryService(
                     strong = strong,
                     urlPrefix = it.urlPrefix,
-                    path = File(it.path)
+                    path = File(config.dataDir).relative(it.name),
+                    allowRewrite = it.allowRewrite,
+                    allowAppend = it.allowAppend,
                 )
-                is RepositoryConfig.Maven -> MavenRepositoryService()
+                is RepositoryConfig.Maven -> MavenRepositoryService(
+                    strong = strong,
+                    urlPrefix = it.urlPrefix,
+                    allowRewrite = it.allowRewrite,
+                    allowAppend = it.allowAppend,
+                    path = File(config.dataDir).relative(it.name),
+                )
             }
             strong.define(repo)
         }
@@ -33,7 +57,7 @@ object StrongConfiguration {
         strong.initializing {
             val b by strong.service<Route>()
             b.get("*") {
-                println("${it.req.method} ${it.req.uri}")
+                println("${it.req.method} ${it.req.uri} ${it.req.headers.keys}")
                 false
             }
         }

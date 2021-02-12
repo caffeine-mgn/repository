@@ -8,17 +8,14 @@ import pw.binom.copyTo
 import pw.binom.io.*
 import pw.binom.io.http.BasicAuth
 import pw.binom.io.http.Headers
-import pw.binom.io.httpServer.Handler
-import pw.binom.io.httpServer.HttpRequest
-import pw.binom.io.httpServer.HttpResponse
+import pw.binom.io.httpServer.*
 import pw.binom.logger.Logger
 import pw.binom.logger.info
+import pw.binom.network.execute
+import pw.binom.network.network
 import pw.binom.pool.ObjectPool
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
-import pw.binom.io.httpServer.*
-import pw.binom.network.execute
-import pw.binom.network.network
 
 private fun contentTypeByExt(ext: String) =
     when (ext.toLowerCase()) {
@@ -85,10 +82,10 @@ class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: O
                 fs.getDir(file.path)!!.forEach {
                     sb.append("<tr>")
                     if (it.isFile)
-                        sb.append("<td><a href=\"${urlEncode(it.name)}\">").append(it.name).append("</a></td><td>")
+                        sb.append("<td><a href=\"${UTF8.urlEncode(it.name)}\">").append(it.name).append("</a></td><td>")
                             .append(it.length.toString()).append("</td>")
                     else
-                        sb.append("<td><a href=\"${urlEncode(it.name)}/\">").append(it.name)
+                        sb.append("<td><a href=\"${UTF8.urlEncode(it.name)}/\">").append(it.name)
                             .append("</a></td><td></td>")
                     sb.append("</tr>")
                 }
@@ -106,7 +103,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: O
             fs.useUser(user) {
                 when (req.method) {
                     "HEAD", "GET" -> {
-                        val e = fs.get(urlDecode(req.contextUri))
+                        val e = fs.get(UTF8.urlDecode(req.contextUri))
                         if (e == null) {
                             println("NOT FOUND ${req.method} ${req.contextUri}")
                             resp.status = 404
@@ -124,7 +121,7 @@ class FileSystemHandler(val title: String, val fs: FileSystem, val copyBuffer: O
                     "PUT" -> {
                         val time = measureTime {
                             log.info("Upload ${req.contextUri}")
-                            val path = urlDecode(req.contextUri)
+                            val path = UTF8.urlDecode(req.contextUri)
                             fs.new(path).use {
                                 req.input.copyTo(it, copyBuffer)
                             }
