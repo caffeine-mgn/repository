@@ -1,6 +1,7 @@
 package pw.binom.repo.repositories.maven
 
 import pw.binom.flux.*
+import pw.binom.io.Closeable
 import pw.binom.io.file.File
 import pw.binom.io.file.mkdirs
 import pw.binom.io.file.relative
@@ -11,7 +12,7 @@ import pw.binom.io.httpServer.requestBasicAuth
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.repo.SecurityRouter
-import pw.binom.repo.repositories.BlobStorageService
+import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
 import pw.binom.repo.users.UsersService
 import pw.binom.strong.Strong
@@ -24,36 +25,37 @@ class MavenRepositoryService(
     val allowRewrite: Boolean,
     val allowAppend: Boolean,
     val path: File,
-) : Repository, Strong.InitializingBean {
+) : Repository, Strong.InitializingBean,Strong.DestroyableBean, AbstractRoute() {
     init {
         path.mkdirs()
     }
-
-    private val logger = run {
-        val loggerPrefix = if (urlPrefix.isEmpty() || urlPrefix == "/") {
-            "/"
-        } else {
-            urlPrefix
-        }
-        Logger.getLogger("MavenRepository $loggerPrefix")
-    }
-
-    private val usersService by strong.service<UsersService>()
-    private val rootRouter by strong.service<Route>()
-    private val blobStorages by strong.serviceList<BlobStorageService>()
-    private val index = MavenIndexer(path.relative("index.db"))
 
     private val prefix = if (urlPrefix.isEmpty() || urlPrefix == "/") {
         ""
     } else {
         urlPrefix
     }
+    private val logger = Logger.getLogger("MavenRepository /${prefix.removePrefix("/")}")
+    private val rootRouter by strong.service<Route>()
+    private val usersService by strong.service<UsersService>()
+    private val blobStorages by strong.serviceList<BlobStorageService>()
+    private val index = MavenIndexer(path.relative("index.db"))
+
+
+    init {
+        logger.info("init maven repo [$prefix/*]")
+        get("$prefix/*", this::get)
+        head("$prefix/*", this::get)
+        post("$prefix/*", this::post)
+
+    }
+
+    override suspend fun destroy() {
+        rootRouter.detach("$prefix/*", this)
+    }
 
     override suspend fun init() {
-        logger.info("init maven repo [$prefix/*]")
-        rootRouter.get("$prefix/*", this::get)
-        rootRouter.head("$prefix/*", this::get)
-        rootRouter.post("$prefix/*", this::post)
+        rootRouter.route("$prefix/*", this)
     }
 
     private suspend fun checkAccess(action: Action, type: UsersService.RepositoryOperationType) {
@@ -117,8 +119,13 @@ class MavenRepositoryService(
         checkAccess(action, UsersService.RepositoryOperationType.WRITE)
         val maven = action.req.getMavenFile()
         val contentType = action.req.headers[Headers.CONTENT_TYPE]?.firstOrNull() ?: "application/x-www-form-urlencoded"
-        val id = index.get(group = maven.group, artifact = maven.artifact, name = maven.name, version = maven.version)
-            ?: Random.uuid()
+        var id = index.get(group = maven.group, artifact = maven.artifact, name = maven.name, version = maven.version)
+
+        if (id != null) {
+            checkAccess(action, UsersService.RepositoryOperationType.REWRITE)
+        }
+
+        id = id ?: Random.uuid()
         blobStorages[0].storeById(id = id, contentType = contentType, append = false, input = action.req.input)
         index.rewrite(
             group = maven.group,

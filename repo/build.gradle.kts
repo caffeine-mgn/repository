@@ -6,9 +6,6 @@ plugins {
 }
 
 val nativeEntryPoint = "pw.binom.repo.main"
-val serialization_version = "1.0.1"
-val network_version = "0.1.28"
-val kotlin_version = "1.4.30"
 
 kotlin {
     linuxX64 {
@@ -43,22 +40,22 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                api("org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version")
-                api("pw.binom.io:core:$network_version")
-                api("pw.binom.io:env:$network_version")
-                api("pw.binom.io:flux:$network_version")
-                api("pw.binom.io:strong:$network_version")
-                api("pw.binom.io:sqlite:$network_version")
-                api("pw.binom.io:file:$network_version")
-                api("pw.binom.io:httpServer:$network_version")
-                api("pw.binom.io:concurrency:$network_version")
-                api("pw.binom.io:xml:$network_version")
-                api("pw.binom.io:logger:$network_version")
-                api("pw.binom.io:process:$network_version")
-                api("pw.binom.io:webdav:$network_version")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-core:$serialization_version")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization_version")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-properties:$serialization_version")
+                api("org.jetbrains.kotlin:kotlin-stdlib-common:${pw.binom.Versions.KOTLIN_VERSION}")
+                api("pw.binom.io:core:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:env:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:flux:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:strong:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:sqlite:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:file:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:httpServer:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:concurrency:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:xml:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:logger:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:process:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:webdav:${pw.binom.Versions.BINOM_VERSION}")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-core:${pw.binom.Versions.SERIALIZATION_VERSION}")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-json:${pw.binom.Versions.SERIALIZATION_VERSION}")
+                api("org.jetbrains.kotlinx:kotlinx-serialization-properties:${pw.binom.Versions.SERIALIZATION_VERSION}")
             }
         }
 
@@ -92,7 +89,7 @@ kotlin {
 
         val jvmMain by getting {
             dependencies {
-                api("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
+                api("org.jetbrains.kotlin:kotlin-stdlib:${pw.binom.Versions.KOTLIN_VERSION}")
             }
         }
     }

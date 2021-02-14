@@ -6,7 +6,7 @@ import pw.binom.flux.get
 import pw.binom.io.file.File
 import pw.binom.io.file.relative
 import pw.binom.repo.repositories.docker.DockerRepositoryService
-import pw.binom.repo.repositories.FileBlobStorageService
+import pw.binom.repo.blob.FileBlobStorageService
 import pw.binom.repo.repositories.maven.MavenRepositoryService
 import pw.binom.repo.users.EmbeddedUsersService
 import pw.binom.repo.users.LDAPUsersService

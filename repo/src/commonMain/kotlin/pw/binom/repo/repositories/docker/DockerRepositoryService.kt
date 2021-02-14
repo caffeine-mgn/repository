@@ -2,20 +2,19 @@ package pw.binom.repo.repositories.docker
 
 import kotlinx.serialization.json.Json
 import pw.binom.*
-import pw.binom.flux.Action
-import pw.binom.flux.Route
-import pw.binom.flux.get
-import pw.binom.flux.post
+import pw.binom.flux.*
 import pw.binom.io.*
 import pw.binom.io.file.*
 import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.HttpRequest
 import pw.binom.io.httpServer.basicAuth
+import pw.binom.io.httpServer.parseGetParams
 import pw.binom.io.httpServer.requestBasicAuth
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.repo.*
+import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.*
 import pw.binom.repo.users.UsersService
 import pw.binom.strong.Strong
@@ -31,42 +30,43 @@ class DockerRepositoryService(
     val path: File,
     val allowRewrite: Boolean,
     val allowAppend: Boolean,
-) : Repository, Strong.InitializingBean {
-
-    private val logger = run {
-        val loggerPrefix = if (urlPrefix.isEmpty() || urlPrefix == "/") {
-            "/"
-        } else {
-            urlPrefix
-        }
-        Logger.getLogger("DockerRepository $loggerPrefix")
-    }
+) : Repository, Strong.InitializingBean, Strong.DestroyableBean, AbstractRoute() {
 
     private val prefix = if (urlPrefix.isEmpty() || urlPrefix == "/") {
         ""
     } else {
         urlPrefix
     }
-
-    private val db = DockerDatabase2(path.relative("index.db"))
-    private val usersService by strong.service<UsersService>()
-
     private val rootRouter by strong.service<Route>()
+    private val usersService by strong.service<UsersService>()
     private val blobStorages by strong.serviceList<BlobStorageService>()
-    override suspend fun init() {
+    private val logger = Logger.getLogger("DockerRepository /${prefix.removePrefix("/")}")
+    private val db = DockerDatabase2(path.relative("index.db"))
+
+    init {
         if (blobStorages.isEmpty()) {
             logger.severe("Can't find ant storage")
             throw IllegalStateException("No any blob storage")
         }
-        rootRouter.get("$prefix/v2/", this::index)
-        rootRouter.post("$prefix/v2/*/blobs/uploads/", this::prepareBlobUpload)
-        rootRouter.endpoint("PUT", "$prefix/v2/blobs/*", this::finishUploadBlob)
-        rootRouter.endpoint("PATCH", "$prefix/v2/blobs/*", this::uploadBlob)
-        rootRouter.endpoint("HEAD", "$prefix/v2/*/blobs/sha256:*", this::getBlob)
-        rootRouter.endpoint("GET", "$prefix/v2/*/blobs/sha256:*", this::getBlob)
-        rootRouter.endpoint("PUT", "$prefix/v2/*/manifests/*", this::putManifests)
-        rootRouter.endpoint("HEAD", "$prefix/v2/*/manifests/*", this::getManifests)
-        rootRouter.endpoint("GET", "$prefix/v2/*/manifests/*", this::getManifests)
+        get("$prefix/v2/", this::index)
+        post("$prefix/v2/*/blobs/uploads/", this::prepareBlobUpload)
+        put("$prefix/v2/blobs/*", this::finishUploadBlob)
+        patch("$prefix/v2/blobs/*", this::uploadBlob)
+        head("$prefix/v2/*/blobs/sha256:*", this::getBlob)
+        get("$prefix/v2/*/blobs/sha256:*", this::getBlob)
+        put("$prefix/v2/*/manifests/*", this::putManifests)
+        head("$prefix/v2/*/manifests/*", this::getManifests)
+        get("$prefix/v2/*/manifests/*", this::getManifests)
+
+
+    }
+
+    override suspend fun destroy() {
+        rootRouter.detach("$prefix/v2/*", this)
+    }
+
+    override suspend fun init() {
+        rootRouter.route("$prefix/v2/*", this)
     }
 
     private fun getImageAndLabel(req: HttpRequest): Pair<String, String>? {

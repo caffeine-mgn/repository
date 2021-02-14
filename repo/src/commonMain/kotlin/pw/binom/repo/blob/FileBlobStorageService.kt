@@ -1,4 +1,4 @@
-package pw.binom.repo.repositories
+package pw.binom.repo.blob
 
 import kotlinx.serialization.Serializable
 import pw.binom.*
