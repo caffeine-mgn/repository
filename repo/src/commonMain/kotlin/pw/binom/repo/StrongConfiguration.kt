@@ -12,6 +12,8 @@ import pw.binom.repo.users.EmbeddedUsersService
 import pw.binom.repo.users.LDAPUsersService
 import pw.binom.strong.Strong
 
+const val ROOT_ROUTER = "root-router"
+
 object StrongConfiguration {
     fun mainConfiguration(config: Config) = Strong.config { strong ->
 
@@ -55,7 +57,7 @@ object StrongConfiguration {
         }
 
         strong.initializing {
-            val b by strong.service<Route>()
+            val b by strong.service<Route>(ROOT_ROUTER)
             b.get("*") {
                 println("${it.req.method} ${it.req.uri} ${it.req.headers.keys}")
                 false

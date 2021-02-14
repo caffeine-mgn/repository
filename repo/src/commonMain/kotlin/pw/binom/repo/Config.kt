@@ -12,8 +12,13 @@ sealed class RepositoryConfig {
     @SerialName("docker")
     data class Docker(
         val name: String,
+        @SerialName("allow_rewrite")
         val allowRewrite: Boolean,
+
+        @SerialName("allow_append")
         val allowAppend: Boolean,
+
+        @SerialName("url_prefix")
         val urlPrefix: String
     ) : RepositoryConfig()
 
@@ -22,8 +27,14 @@ sealed class RepositoryConfig {
     @SerialName("maven")
     data class Maven(
         val name: String,
+
+        @SerialName("allow_rewrite")
         val allowRewrite: Boolean,
+
+        @SerialName("allow_append")
         val allowAppend: Boolean,
+
+        @SerialName("url_prefix")
         val urlPrefix: String
     ) : RepositoryConfig()
 }
@@ -64,9 +75,12 @@ sealed class BlobStorage {
 @Serializable
 class Config(
     val dataDir: String,
+    @SerialName("copy_buffer_size")
     val copyBufferSize: Int,
     val repositories: List<RepositoryConfig> = emptyList(),
+    @SerialName("user_management")
     val userManagement: List<UserManagementConfig> = emptyList(),
+    @SerialName("blob_storages")
     val blobStorages: List<BlobStorage> = emptyList(),
     val bind: List<BindConfig> = emptyList()
 )

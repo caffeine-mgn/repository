@@ -1,0 +1,48 @@
+{
+  "repositories": [
+    {
+      "type": "docker",
+      "allow_rewrite": true,
+      "allow_append": true,
+      "url_prefix": "/myrepo",
+      "name": "hub"
+    },
+    {
+      "type": "maven",
+      "allow_rewrite": true,
+      "allow_append": true,
+      "url_prefix": "/binom",
+      "name": "hub"
+    }
+  ],
+  "user_management": [
+    {
+      "type": "embedded",
+      "users": [
+        {
+          "login": "admin",
+          "password": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+        },
+        {
+          "login": "ci",
+          "password": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8"
+        }
+      ]
+    }
+  ],
+  "bind": [
+    {
+      "ip": "0.0.0.0",
+      "port": 7002
+    }
+  ],
+  "blob_storages": [
+    {
+      "type": "fs",
+      "root": "C:\\TEMP\\11\\blobs",
+      "id": "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
+    }
+  ],
+  "dataDir": "C:\\TEMP\\11\\repositories",
+  "copy_buffer_size": 8192
+}

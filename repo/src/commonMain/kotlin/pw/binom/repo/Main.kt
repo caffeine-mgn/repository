@@ -9,6 +9,7 @@ import pw.binom.concurrency.WorkerPool
 import pw.binom.flux.RootRouter
 import pw.binom.flux.wrap
 import pw.binom.io.bufferedAsciiReader
+import pw.binom.io.bufferedInput
 import pw.binom.io.file.File
 import pw.binom.io.file.read
 import pw.binom.io.httpServer.*
@@ -55,75 +56,92 @@ private fun printHelp() {
 }
 
 fun main(args: Array<String>) {
-
-    val config = Config(
-        repositories = listOf(
-            RepositoryConfig.Docker(
-                allowRewrite = true,
-                allowAppend = true,
-                urlPrefix = "/myrepo",
-                name = "images",
-            ),
-            RepositoryConfig.Maven(
-                allowRewrite = true,
-                allowAppend = true,
-                name = "binom",
-                urlPrefix = "/binom",
-            )
-        ),
-        userManagement = listOf(
-            UserManagementConfig.Embedded(
-                listOf(
-                    UserManagementConfig.Embedded.User(
-                        login = "admin",
-                        password = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-                    ),
-                    UserManagementConfig.Embedded.User(
-                        login = "ci",
-                        password = "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
-                    ),
-                )
-            )
-        ),
-        bind = listOf(
-            BindConfig(
-                ip = "0.0.0.0",
-                port = 7002
-            )
-        ),
-        blobStorages = listOf(
-            BlobStorage.FileBlobStorage(
-                root = "C:\\TEMP\\11\\blobs",
-                id = "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
-            )
-        ),
-        dataDir = "C:\\TEMP\\11\\repositories",
-        copyBufferSize = DEFAULT_BUFFER_SIZE
-    )
-    val configs = HashMap<String, String>()
-    args.forEach {
+    val config = args.mapNotNull {
         if (it.startsWith("-config=")) {
-            val configFile = File(it.removePrefix("-config="))
-            if (configFile.isFile) {
-                throw RuntimeException("Can't find config file ${configFile.path}")
+            val txt = it.removePrefix("-config=")
+            val configText = if (txt.startsWith("{")) {
+                txt
+            } else {
+                File(txt).read().bufferedAsciiReader().use { it.readText() }
             }
-            configFile.read().bufferedAsciiReader().use {
-                it.readText().split('\n').forEach {
-                    val items = it.split('=', limit = 2)
-                    configs[items[0]] = items[1]
-                }
-            }
+
+            Json.parseToJsonElement(configText)
+        } else {
+            null
         }
+    }.reduce { first, second ->
+        JsonUtils.merge(first, second)
+    }.let {
+        Json.decodeFromJsonElement(Config.serializer(), it)
     }
+//    val config = Config(
+//        repositories = listOf(
+//            RepositoryConfig.Docker(
+//                allowRewrite = true,
+//                allowAppend = true,
+//                urlPrefix = "/myrepo",
+//                name = "images",
+//            ),
+//            RepositoryConfig.Maven(
+//                allowRewrite = true,
+//                allowAppend = true,
+//                name = "binom",
+//                urlPrefix = "/binom",
+//            )
+//        ),
+//        userManagement = listOf(
+//            UserManagementConfig.Embedded(
+//                listOf(
+//                    UserManagementConfig.Embedded.User(
+//                        login = "admin",
+//                        password = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+//                    ),
+//                    UserManagementConfig.Embedded.User(
+//                        login = "ci",
+//                        password = "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+//                    ),
+//                )
+//            )
+//        ),
+//        bind = listOf(
+//            BindConfig(
+//                ip = "0.0.0.0",
+//                port = 7002
+//            )
+//        ),
+//        blobStorages = listOf(
+//            BlobStorage.FileBlobStorage(
+//                root = "C:\\TEMP\\11\\blobs",
+//                id = "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
+//            )
+//        ),
+//        dataDir = "C:\\TEMP\\11\\repositories",
+//        copyBufferSize = DEFAULT_BUFFER_SIZE
+//    )
+//    val configs = HashMap<String, String>()
+//    args.forEach {
+//        if (it.startsWith("-config=")) {
+//            val configFile = File(it.removePrefix("-config="))
+//            if (configFile.isFile) {
+//                throw RuntimeException("Can't find config file ${configFile.path}")
+//            }
+//            configFile.read().bufferedAsciiReader().use {
+//                it.readText().split('\n').forEach {
+//                    val items = it.split('=', limit = 2)
+//                    configs[items[0]] = items[1]
+//                }
+//            }
+//        }
+//    }
     println("Config:\n")
     println(Json.encodeToString(Config.serializer(), config))
 
-    args.forEach {
-        if (it.startsWith("-") && "=" in it && !it.startsWith("-config=")) {
-            val items = it.removePrefix("-").split('=', limit = 2)
-            configs[items[0]] = items[1]
-        }
-    }
+//    args.forEach {
+//        if (it.startsWith("-") && "=" in it && !it.startsWith("-config=")) {
+//            val items = it.removePrefix("-").split('=', limit = 2)
+//            configs[items[0]] = items[1]
+//        }
+//    }
 //    Json.decodeFromString(ConfigObj.serializer(), configs)
     Logger.global.handler = Logger.consoleHandler
     val webLogger = Logger.getLogger("http")
@@ -170,7 +188,7 @@ fun main(args: Array<String>) {
                 Strong.config { strong ->
 
                     strong.define(connectionManager)
-                    strong.define(rootRouter)
+                    strong.define(rootRouter, name = ROOT_ROUTER)
                     strong.define(server)
                     config.bind.forEach {
                         server.bindHTTP(

@@ -11,6 +11,7 @@ import pw.binom.io.httpServer.basicAuth
 import pw.binom.io.httpServer.requestBasicAuth
 import pw.binom.logger.Logger
 import pw.binom.logger.info
+import pw.binom.repo.ROOT_ROUTER
 import pw.binom.repo.SecurityRouter
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
@@ -36,7 +37,7 @@ class MavenRepositoryService(
         urlPrefix
     }
     private val logger = Logger.getLogger("MavenRepository /${prefix.removePrefix("/")}")
-    private val rootRouter by strong.service<Route>()
+    private val rootRouter by strong.service<Route>(name = ROOT_ROUTER)
     private val usersService by strong.service<UsersService>()
     private val blobStorages by strong.serviceList<BlobStorageService>()
     private val index = MavenIndexer(path.relative("index.db"))

@@ -37,7 +37,7 @@ class DockerRepositoryService(
     } else {
         urlPrefix
     }
-    private val rootRouter by strong.service<Route>()
+    private val rootRouter by strong.service<Route>(name = ROOT_ROUTER)
     private val usersService by strong.service<UsersService>()
     private val blobStorages by strong.serviceList<BlobStorageService>()
     private val logger = Logger.getLogger("DockerRepository /${prefix.removePrefix("/")}")
