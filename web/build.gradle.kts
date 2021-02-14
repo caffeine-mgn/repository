@@ -43,3 +43,15 @@ kotlin {
         }
     }
 }
+
+tasks {
+    val copyCss by creating(Copy::class) {
+        dependsOn("compileKotlinJs")
+        dependsOn(":web-styles:generateCSS")
+        with(copySpec {
+            from(project(":web-styles").buildDir.resolve("css"))
+            include("*.css")
+        })
+        this.destinationDir = project.buildDir.resolve("processedResources/js/main")
+    }
+}
