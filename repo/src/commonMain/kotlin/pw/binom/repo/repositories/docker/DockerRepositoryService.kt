@@ -98,6 +98,16 @@ class DockerRepositoryService(
             }
         }
 
+        if (!allowAppend && type == UsersService.RepositoryOperationType.WRITE) {
+            req("access not allowed")
+            throw SecurityRouter.NotAllowedException()
+        }
+
+        if (!allowRewrite && type == UsersService.RepositoryOperationType.REWRITE) {
+            req("access not allowed")
+            throw SecurityRouter.NotAllowedException()
+        }
+
         val auth = action.req.basicAuth
         val user = if (auth != null) {
             val user = usersService.getUser(login = auth.login, password = auth.password)

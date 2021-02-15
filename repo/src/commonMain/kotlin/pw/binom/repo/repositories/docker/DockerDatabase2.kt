@@ -1,6 +1,5 @@
 package pw.binom.repo.repositories.docker
 
-import pw.binom.concurrency.ThreadRef
 import pw.binom.doFreeze
 import pw.binom.io.file.File
 import pw.binom.io.use
