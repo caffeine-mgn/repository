@@ -1,8 +1,13 @@
 package pw.binom.repo.repositories.docker
 
+import pw.binom.concurrency.Worker
+import pw.binom.concurrency.asReference
+import pw.binom.db.sqlite.SQLiteConnector
 import pw.binom.doFreeze
+import pw.binom.io.AsyncCloseable
 import pw.binom.io.file.File
 import pw.binom.io.use
+import pw.binom.network.execute
 import pw.binom.repo.repositories.AbstractSQLiteService
 import pw.binom.uuid
 import kotlin.random.Random
@@ -12,15 +17,21 @@ const val LABELS_LAYOUTS = "${LABELS}_layouts"
 const val LABEL_ID = "label_id"
 const val LAYOUT_DIGEST = "layout_digest"
 
-class DockerDatabase2(file: File) : AbstractSQLiteService(file) {
+class DockerDatabase2(connection: SQLiteConnector, val worker: Worker) : AsyncCloseable {
+    companion object {
+        suspend fun open(file: File): DockerDatabase2 {
+            val worker = Worker()
+            return execute(worker) {
+                val con = SQLiteConnector.openFile(file)
+                DockerDatabase2(con, worker)
+            }
+        }
+    }
 
     init {
-        doFreeze()
-        worker.execute(Unit) {
-            try {
-                connection.createStatement().use { st ->
-                    st.executeUpdate(
-                        """
+        connection.createStatement().use {
+            it.executeUpdate(
+                """
 create table if not exists $LABELS (
     $LABEL_ID BLOB PRIMARY KEY not null,
     digest BLOB not null,
@@ -39,65 +50,52 @@ create unique index if not exists ${LABELS_LAYOUTS}_label ON $LABELS_LAYOUTS($LA
 create index if not exists ${LABELS_LAYOUTS}_layout ON $LABELS_LAYOUTS($LABEL_ID);
 create unique index if not exists ${LABELS}_full_name ON $LABELS($LABEL_ID, $LAYOUT_DIGEST);
                 """
-                    )
-                    connection.commit()
-                }
-            } catch (e: Throwable) {
-                connection.rollback()
-                e.printStackTrace()
-            }
+            )
         }
+        connection.commit()
     }
 
+    private val con = connection.asReference()
+
     suspend fun upsertLabel(name: String, label: String, data: String) {
-        executeOnWorker {
+        execute(worker) {
             try {
                 val oldLabelId =
-                    connection.prepareStatement("select $LABEL_ID from $LABELS where name = ? and label=? limit 1")
+                    con.value.prepareStatement("select $LABEL_ID from $LABELS where name = ? and label=? limit 1")
                         .use {
-                            it.set(0, name)
-                            it.set(1, label)
-                            it.executeQuery().map { it.getUUID(0) }.asSequence().firstOrNull()
+                            it.executeQuery(name, label).map { it.getUUID(0) }.asSequence().firstOrNull()
                         }
                 if (oldLabelId != null) {
-                    connection.prepareStatement("delete from $LABELS where $LABEL_ID = ?").use {
-                        it.set(0, oldLabelId)
-                        it.executeUpdate()
+                    con.value.prepareStatement("delete from $LABELS where $LABEL_ID = ?").use {
+                        it.executeUpdate(oldLabelId)
                     }
-                    connection.prepareStatement("delete from $LABELS_LAYOUTS where $LABEL_ID = ?").use {
-                        it.set(0, oldLabelId)
-                        it.executeUpdate()
+                    con.value.prepareStatement("delete from $LABELS_LAYOUTS where $LABEL_ID = ?").use {
+                        it.executeUpdate(oldLabelId)
                     }
                 }
-                connection.prepareStatement("insert into $LABELS ($LABEL_ID, digest, name, label, body, size) values (?, ?, ?, ?, ?, ?)")
+                con.value.prepareStatement("insert into $LABELS ($LABEL_ID, digest, name, label, body, size) values (?, ?, ?, ?, ?, ?)")
                     .use {
-                        it.set(0, Random.uuid())
-                        it.set(1, data.calcSha256())
-                        it.set(2, name)
-                        it.set(3, label)
-                        it.set(4, data)
-                        it.set(5, data.length)
-                        it.executeUpdate()
+                        it.executeUpdate(Random.uuid(), data.calcSha256(), name, label, data, data.length)
                     }
-                connection.commit()
+                con.value.commit()
             } catch (e: Throwable) {
-                connection.rollback()
+                con.value.rollback()
                 throw e
             }
         }
     }
 
     suspend fun insertLayout(name: String, label: String, layouts: List<ByteArray>) {
-        executeOnWorker {
+        execute(worker) {
             try {
                 val oldLabelId =
-                    connection.prepareStatement("select $LABEL_ID from $LABELS where name = ? and label=? limit 1")
+                    con.value.prepareStatement("select $LABEL_ID from $LABELS where name = ? and label=? limit 1")
                         .use {
                             it.set(0, name)
                             it.set(1, label)
                             it.executeQuery().map { it.getUUID(0) }.asSequence().firstOrNull()
                         } ?: throw IllegalArgumentException("Image $name:$label not found")
-                connection.prepareStatement("insert into $LABELS_LAYOUTS ($LABEL_ID, $LAYOUT_DIGEST) values(?, ?)")
+                con.value.prepareStatement("insert into $LABELS_LAYOUTS ($LABEL_ID, $LAYOUT_DIGEST) values(?, ?)")
                     .use {
                         it.set(0, oldLabelId)
                         layouts.forEach { d ->
@@ -105,9 +103,9 @@ create unique index if not exists ${LABELS}_full_name ON $LABELS($LABEL_ID, $LAY
                             it.executeUpdate()
                         }
                     }
-                connection.commit()
+                con.value.commit()
             } catch (e: Throwable) {
-                connection.rollback()
+                con.value.rollback()
                 throw e
             }
         }
@@ -115,17 +113,16 @@ create unique index if not exists ${LABELS}_full_name ON $LABELS($LABEL_ID, $LAY
 
     class Label(val digest: ByteArray, val data: String, val size: Long)
 
-    suspend fun isLabelExist(name: String, label: String): Boolean = executeOnWorker {
-        connection.prepareStatement("select $LABEL_ID from $LABELS where name=? and label=? limit 1").use {
+    suspend fun isLabelExist(name: String, label: String): Boolean = execute(worker) {
+        con.value.prepareStatement("select $LABEL_ID from $LABELS where name=? and label=? limit 1").use {
             it.set(0, name)
             it.set(1, label)
             it.executeQuery().use { it.next() }
         }
     }
 
-    suspend fun getLabelByName(name: String, label: String) = executeOnWorker {
-
-        connection.prepareStatement("select digest, size, body from $LABELS where name=? and label=? limit 1").use {
+    suspend fun getLabelByName(name: String, label: String) = execute(worker) {
+        con.value.prepareStatement("select digest, size, body from $LABELS where name=? and label=? limit 1").use {
             it.set(0, name)
             it.set(1, label)
             it.executeQuery().map {
@@ -138,8 +135,8 @@ create unique index if not exists ${LABELS}_full_name ON $LABELS($LABEL_ID, $LAY
         }
     }
 
-    suspend fun getLabelByDigest(digest: ByteArray) = executeOnWorker {
-        connection.prepareStatement("select size, body from $LABELS where digest = ? limit 1").use {
+    suspend fun getLabelByDigest(digest: ByteArray) = execute(worker) {
+        con.value.prepareStatement("select size, body from $LABELS where digest = ? limit 1").use {
             it.set(0, digest)
             it.executeQuery().map {
                 Label(
@@ -148,6 +145,13 @@ create unique index if not exists ${LABELS}_full_name ON $LABELS($LABEL_ID, $LAY
                     data = it.getString(1)!!
                 )
             }.asSequence().toList().firstOrNull()
+        }
+    }
+
+    override suspend fun asyncClose() {
+        execute(worker) {
+            con.value.close()
+            con.close()
         }
     }
 }

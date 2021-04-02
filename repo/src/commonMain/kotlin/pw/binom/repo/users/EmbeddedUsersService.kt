@@ -30,4 +30,7 @@ class EmbeddedUsersService(val config: UserManagementConfig.Embedded) : UsersSer
         operation: UsersService.RepositoryOperationType
     ): Boolean = true
 
+    override suspend fun asyncClose() {
+    }
+
 }

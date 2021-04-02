@@ -1,4 +1,4 @@
-package pw.styles
+package pw.binom.css
 
 import kotlin.reflect.KProperty
 

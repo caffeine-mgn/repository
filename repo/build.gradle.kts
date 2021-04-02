@@ -44,7 +44,7 @@ kotlin {
                 api("pw.binom.io:core:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:env:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:flux:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:strong:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:strong-application:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:sqlite:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:file:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:httpServer:${pw.binom.Versions.BINOM_VERSION}")

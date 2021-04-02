@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import pw.binom.*
 import pw.binom.concurrency.WorkerPool
+import pw.binom.flux.DefaultErrorHandler
 import pw.binom.flux.RootRouter
+import pw.binom.flux.exceptionHandler
 import pw.binom.flux.wrap
 import pw.binom.io.bufferedAsciiReader
 import pw.binom.io.bufferedInput
@@ -23,6 +25,7 @@ import pw.binom.network.NetworkDispatcher
 import pw.binom.network.SocketClosedException
 import pw.binom.process.Signal
 import pw.binom.strong.Strong
+import pw.binom.strong.StrongApplication
 
 val LOG = Logger.getLogger("Main")
 
@@ -38,7 +41,7 @@ private fun printHelp() {
 
         Platform.JVM,
         Platform.JS -> ""
-        else->TODO()
+        else -> TODO()
     }
 
     println("Commands:")
@@ -144,93 +147,17 @@ fun main(args: Array<String>) {
 //    }
 //    Json.decodeFromString(ConfigObj.serializer(), configs)
     Logger.global.handler = Logger.consoleHandler
-    val webLogger = Logger.getLogger("http")
-
-    val connectionManager = NetworkDispatcher()
-    val rootRouter = RootRouter()
-        .wrap { action, func ->
-            try {
-                if (func(action)) {
-                    webLogger.info("${action.req.method} ${action.req.uri} - ${action.resp.status}")
-                } else {
-                    webLogger.warn("Unhandled request ${action.req.method} ${action.req.uri} - ${action.resp.status}")
-                }
-                true
-            } catch (e: SocketClosedException) {
-                //IGNORE
-                true
-            } catch (e: Throwable) {
-                webLogger.warn("Exception on ${action.req.method} ${action.req.uri} - ${action.resp.status}")
-                e.printStackTrace()
-                runCatching {
-                    action.resp.status = 500
-                }
-                true
-            }
-        }
 
 
-    val server = HttpServer(
-        manager = connectionManager,
-        handler = SecurityRouter(rootRouter),
-        poolSize = 30,
-        inputBufferSize = 1024 * 1024 * 2,
-        outputBufferSize = 1024 * 1024 * 2,
-        zlibBufferSize = 0,
-        executor = WorkerPool(10)
+
+
+
+
+
+
+    StrongApplication.start(
+        StrongConfiguration.web(config),
+        StrongConfiguration.mainConfiguration(config),
     )
-
-
-    try {
-        val initFuture = connectionManager.async {
-            Strong.create(
-                StrongConfiguration.mainConfiguration(config),
-                Strong.config { strong ->
-
-                    strong.define(connectionManager)
-                    strong.define(rootRouter, name = ROOT_ROUTER)
-                    strong.define(server)
-                    config.bind.forEach {
-                        server.bindHTTP(
-                            NetworkAddress.Immutable(
-                                host = it.ip,
-                                port = it.port,
-                            )
-                        )
-                    }
-                }).start()
-        }
-
-        while (!Signal.isInterrupted) {
-            if (initFuture.isDone && initFuture.isFailure) {
-                throw initFuture.exceptionOrNull!!
-            }
-            connectionManager.select(1000)
-        }
-        LOG.info("Stop the Server")
-
-        server.close()
-        connectionManager.close()
-    } catch (e: Throwable) {
-        e.printStackTrace()
-    }
 }
-
-fun Strong.initializing(func: suspend () -> Unit) = define(object : Strong.InitializingBean {
-    override suspend fun init() {
-        func()
-    }
-})
-
-fun Strong.linking(func: suspend () -> Unit) = define(object : Strong.LinkingBean {
-    override suspend fun link() {
-        func()
-    }
-})
-
-fun Strong.destroying(func: suspend () -> Unit) = define(object : Strong.DestroyableBean {
-    override suspend fun destroy() {
-        func()
-    }
-})
 

@@ -1,4 +1,4 @@
-package pw.styles
+package pw.binom.css
 
 fun CSS(function: CSSBlock.() -> Unit): CSSBlock {
     val block = CSSBlock()
@@ -17,4 +17,3 @@ class CSSBlock {
     }
 
 }
-

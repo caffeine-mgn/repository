@@ -4,8 +4,11 @@
       "type": "docker",
       "allow_rewrite": true,
       "allow_append": true,
-      "url_prefix": "/myrepo",
-      "name": "hub"
+      "url_prefix": "myrepo",
+      "name": "myrepo",
+      "blobs": [
+        "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
+      ]
     },
     {
       "type": "maven",
@@ -39,7 +42,7 @@
   "blob_storages": [
     {
       "type": "fs",
-      "root": "C:\\TEMP\\11\\blobs",
+      "root": "C:\\TEMP\\11\\my_blob_repo",
       "id": "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
     }
   ],

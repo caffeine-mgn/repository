@@ -1,8 +1,9 @@
+apply<pw.binom.CssPlugin>()
+/*
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.github.johnrengelman.shadow").version("5.2.0")
 }
-
 val nativeEntryPoint = "pw.binom.repo.web.main"
 
 kotlin {
@@ -36,3 +37,4 @@ tasks {
         useJar(shadowJar)
     }
 }
+*/

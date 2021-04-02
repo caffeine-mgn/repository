@@ -15,4 +15,7 @@ class LDAPUsersService(val config: UserManagementConfig.LDAP):UsersService {
     ): Boolean {
         TODO("Not yet implemented")
     }
+
+    override suspend fun asyncClose() {
+    }
 }

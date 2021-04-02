@@ -36,7 +36,7 @@ fun String.fromHex(): ByteArray {
 }
 
 fun HttpRequest.getAsCurl(): String {
-    val sb = StringBuilder("curl -X ${method} https://images.binom.pw${uri} -H 'Host:images.binom.pw'")
+    val sb = StringBuilder("curl -X ${method} https://images.binom.pw${request} -H 'Host:images.binom.pw'")
     headers.forEach { item ->
         when (item.key) {
             "X-Forwarded-Proto", "Host", "Accept-Encoding", "X-Forwarded-For" -> return@forEach

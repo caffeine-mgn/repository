@@ -3,15 +3,19 @@ package pw.binom.repo
 import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import pw.binom.UUID
 
 @Polymorphic
 @Serializable
 sealed class RepositoryConfig {
+
+    abstract val name: String
+
     @Polymorphic
     @Serializable
     @SerialName("docker")
     data class Docker(
-        val name: String,
+        override val name: String,
         @SerialName("allow_rewrite")
         val allowRewrite: Boolean,
 
@@ -19,14 +23,17 @@ sealed class RepositoryConfig {
         val allowAppend: Boolean,
 
         @SerialName("url_prefix")
-        val urlPrefix: String
+        val urlPrefix: String,
+
+        @SerialName("blobs")
+        val blobs: List<String> = emptyList(),
     ) : RepositoryConfig()
 
     @Polymorphic
     @Serializable
     @SerialName("maven")
     data class Maven(
-        val name: String,
+        override val name: String,
 
         @SerialName("allow_rewrite")
         val allowRewrite: Boolean,
@@ -35,7 +42,10 @@ sealed class RepositoryConfig {
         val allowAppend: Boolean,
 
         @SerialName("url_prefix")
-        val urlPrefix: String
+        val urlPrefix: String,
+
+        @SerialName("blobs")
+        val blobs: List<String> = emptyList(),
     ) : RepositoryConfig()
 }
 

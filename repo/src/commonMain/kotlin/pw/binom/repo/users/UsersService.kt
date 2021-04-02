@@ -1,8 +1,9 @@
 package pw.binom.repo.users
 
+import pw.binom.io.AsyncCloseable
 import pw.binom.repo.repositories.Repository
 
-interface UsersService {
+interface UsersService : AsyncCloseable {
 
     enum class RepositoryOperationType {
         READ, WRITE, REWRITE
