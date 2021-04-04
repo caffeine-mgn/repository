@@ -29,6 +29,7 @@ object StrongConfiguration {
             val repoHandler = RepositoryHandler(strong)
             val rootRouter = RootRouter()
                 .wrap { action, func ->
+                    webLogger.info("Request ${action.method} ${action.request}")
                     func(action)
                     if (action.response == null) {
                         webLogger.info("Unhandled request ${action.method} ${action.request}")

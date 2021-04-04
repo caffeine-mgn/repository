@@ -92,24 +92,33 @@ class DockerHandler(
         checkAccess(req, UsersService.RepositoryOperationType.WRITE)
         println("Patch Blob: ${req.getAsCurl()}")
         val uuid = req.path.getVariable("digest", UPLOAD) ?: ""
-        val blobStore = blobs[0]
-        val blobSize = req.readBinary().use { input ->
-            blobs[0].store(
-                id = uuid.toUUIDOrNull() ?: throw IllegalArgumentException("Invalid UUID"),
-                append = false,
-                input = input,
-            )
+        try {
+            val blobSize = req.readBinary().use { input ->
+                try {
+                    blobs[0].store(
+                        id = uuid.toUUIDOrNull() ?: throw IllegalArgumentException("Invalid UUID"),
+                        append = false,
+                        input = input,
+                    )
+                } catch (e: Throwable) {
+                    println("Error on read uploadBody   $e")
+                    throw e
+                }
+            }
+            println("Blob Uploaded: $blobSize")
+            req.response {
+                it.status = 202
+                it.headers.keepAlive = false
+                it.headers.location = "/v2/blobs/$uuid"
+                it.headers[Headers.RANGE] = "0-${blobSize.toULong()}"
+                it.headers.contentLength = 0uL
+                it.headers[DOCKER_UPLOAD_UUID] = uuid
+            }
+            return true
+        } catch (e: Throwable) {
+            println("Can't upload blob $uuid")
+            throw e
         }
-        println("blobSize: $blobSize")
-        req.response {
-            it.status = 202
-            it.headers.keepAlive = false
-            it.headers.location = "/v2/blobs/$uuid"
-            it.headers[Headers.RANGE] = "0-${blobSize.toULong()}"
-            it.headers.contentLength = 0uL
-            it.headers[DOCKER_UPLOAD_UUID] = uuid
-        }
-        return true
     }
 
     private suspend fun getBlob(req: HttpRequest): Boolean {
@@ -117,12 +126,14 @@ class DockerHandler(
         val shaHex = req.path.getVariable("digest", "*/sha256:{digest}") ?: ""
         val blobMeta = blobs[0].index.findByDigest(shaHex.fromHex())
         if (blobMeta == null) {
+            println("Blob $shaHex not found")
             req.response {
                 it.headers.keepAlive = false
                 it.status = 404
             }
             return true
         }
+        println("Blob $shaHex - OK")
         req.response {
             it.status = 200
             it.headers.keepAlive = false
@@ -138,6 +149,7 @@ class DockerHandler(
     }
 
     private suspend fun finishUploadBlob(req: HttpRequest): Boolean {
+        println("Finish upload!")
         checkAccess(req, UsersService.RepositoryOperationType.WRITE)
         val digestStr = req.query?.firstOrNull("digest")?.removePrefix("sha256:") ?: return false
         val length = req.headers.contentLength
@@ -155,7 +167,6 @@ class DockerHandler(
                     ?.removePrefix("bytes=")
                     ?.split('-', limit = 2)
             if (items != null && oldBlob != null) {
-
                 if (oldBlob.size != items[0].toULong().toLong()) {
                     req.response {
                         it.status = 416
@@ -192,6 +203,7 @@ class DockerHandler(
                 )
             )
         }
+        println("Finish OK! 201")
         req.response {
             it.status = 201
             it.headers.keepAlive = false
@@ -205,11 +217,11 @@ class DockerHandler(
 
     private suspend fun checkAccess(req: HttpRequest, type: UsersService.RepositoryOperationType) {
         suspend fun req(msg: String) {
-            req.response().apply {
-                headers.requestBasicAuth()
-                headers.keepAlive = false
-                headers[DOCKER_DISTRIBUTION_API_VERSION] = "registry/2.0"
-                writeText(generateUnauthorized(msg = msg))
+            req.response {
+                it.headers.requestBasicAuth()
+                it.headers.keepAlive = false
+                it.headers[DOCKER_DISTRIBUTION_API_VERSION] = "registry/2.0"
+                it.writeText(generateUnauthorized(msg = msg))
             }
         }
 
