@@ -8,6 +8,7 @@ import pw.binom.io.*
 import pw.binom.io.file.*
 import pw.binom.logger.Logger
 import pw.binom.logger.info
+import pw.binom.logger.infoSync
 import pw.binom.logger.warn
 import pw.binom.network.execute
 import pw.binom.network.network
@@ -43,7 +44,7 @@ class FileBlobStorageService(
 
     init {
         blobPath.mkdirs()
-        logger.info("Start Storage")
+        logger.infoSync("Start Storage")
     }
 
     override suspend fun getData(id: UUID, output: AsyncOutput): Boolean {
