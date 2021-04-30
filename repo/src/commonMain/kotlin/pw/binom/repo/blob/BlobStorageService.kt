@@ -5,7 +5,7 @@ import pw.binom.io.AsyncCloseable
 
 interface BlobStorageService : AsyncCloseable {
     val id: UUID
-    val index: BlobIndex
+    val remaining: Long
 
     suspend fun getData(id: UUID, output: AsyncOutput): Boolean
     suspend fun calcDigest(id: UUID): ByteArray?
@@ -14,6 +14,6 @@ interface BlobStorageService : AsyncCloseable {
     //    suspend fun getDataById(id: UUID, output: AsyncOutput): Boolean
 //    suspend fun getDataByDigest(digest: ByteArray, output: AsyncOutput): Boolean
 //    suspend fun updateContentType(digest: ByteArray, contentType: String): Boolean
-    suspend fun store(id: UUID, append: Boolean, input: AsyncInput):Long
+    suspend fun store(id: UUID, append: Boolean, input: AsyncInput): Long
     suspend fun isCanStore(size: Long): Boolean
 }

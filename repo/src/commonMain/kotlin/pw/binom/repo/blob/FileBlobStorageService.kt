@@ -10,7 +10,6 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.infoSync
 import pw.binom.logger.warn
-import pw.binom.network.execute
 import pw.binom.network.network
 import pw.binom.repo.repositories.docker.calcSha256
 import pw.binom.repo.toHex
@@ -19,7 +18,6 @@ class FileBlobStorageService(
     val blobPath: File,
     override val id: UUID,
     val bufferSize: Int,
-    override val index: BlobSQLiteDB,
 ) : BlobStorageService {
     companion object {
         suspend fun open(id: UUID, bufferSize: Int, root: File): FileBlobStorageService {
@@ -34,7 +32,6 @@ class FileBlobStorageService(
                 blobPath = root.relative("data"),
                 id = id,
                 bufferSize = bufferSize,
-                index = BlobSQLiteDB.open(root.relative("index.db"))
             )
         }
     }
@@ -46,6 +43,9 @@ class FileBlobStorageService(
         blobPath.mkdirs()
         logger.infoSync("Start Storage")
     }
+
+    override val remaining: Long
+        get() = blobPath.freeSpace
 
     override suspend fun getData(id: UUID, output: AsyncOutput): Boolean {
         val file = blobPath.relative(id.toString())
@@ -130,7 +130,6 @@ class FileBlobStorageService(
         }
 
     override suspend fun asyncClose() {
-        index.asyncClose()
         executor.shutdown()
     }
 }

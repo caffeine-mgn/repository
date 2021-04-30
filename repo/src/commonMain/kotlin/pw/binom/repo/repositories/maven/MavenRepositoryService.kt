@@ -1,40 +1,175 @@
 package pw.binom.repo.repositories.maven
 
+import pw.binom.UUID
 import pw.binom.flux.*
 import pw.binom.io.file.File
 import pw.binom.io.file.mkdirs
 import pw.binom.io.file.relative
-import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
+import pw.binom.io.use
 import pw.binom.logger.Logger
 import pw.binom.logger.info
-import pw.binom.repo.ROOT_ROUTER
-import pw.binom.repo.SecurityRouter
+import pw.binom.logger.severe
+import pw.binom.net.toPath
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
-import pw.binom.repo.users.UsersService
 import pw.binom.strong.Strong
 import pw.binom.uuid
 import kotlin.random.Random
 
+private const val FULL_PATH = "/repositories/*/{name}"
+
+class MavenPtr(val group: String, val artifact: String, val version: String?, val name: String) {
+    companion object {
+        fun parse(path: String): MavenPtr {
+            val p = path.toPath
+            val items = p.raw.split('/')
+            return if (p.isMatch("*/maven-metadata.xml.*") || p.isMatch("*/maven-metadata.xml")) {
+                val name = items[items.lastIndex]
+                val artifact = items[items.lastIndex - 1]
+                val group = items.subList(0, items.lastIndex - 1).joinToString(".")
+                MavenPtr(
+                    group = group,
+                    artifact = artifact,
+                    version = null,
+                    name = name,
+                )
+            } else {
+                val name = items[items.lastIndex]
+                val version = items[items.lastIndex - 1]
+                val artifact = items[items.lastIndex - 2]
+                val group = items.subList(0, items.lastIndex - 2).joinToString(".")
+                MavenPtr(
+                    group = group,
+                    artifact = artifact,
+                    version = version,
+                    name = name,
+                )
+            }
+        }
+    }
+
+    override fun toString(): String =
+        "$group:$artifact:${version ?: "<no version>"}/$name"
+}
+
 class MavenRepositoryService(
     strong: Strong,
+    val repositoryName: String,
     val urlPrefix: String,
     val allowRewrite: Boolean,
     val allowAppend: Boolean,
     val path: File,
-) : Repository, Strong.InitializingBean, Strong.DestroyableBean, Handler {
-    override suspend fun destroy(strong: Strong) {
-        TODO("Not yet implemented")
+    val blobs: Map<UUID, BlobStorageService>
+) : Repository, Handler {
+
+    private val logger = Logger.getLogger("Maven /$repositoryName")
+
+    private lateinit var mavenIndexer2: MavenIndexer2
+
+    override suspend fun start() {
+        logger.info("Starting")
+        path.mkdirs()
+        mavenIndexer2 = MavenIndexer2.create(
+            repositoryName = repositoryName,
+            path.relative("index.db")
+        )
     }
 
-    override suspend fun init(strong: Strong) {
-        TODO("Not yet implemented")
+    override suspend fun asyncClose() {
+        mavenIndexer2.asyncClose()
     }
 
     override suspend fun request(req: HttpRequest) {
-        TODO("Not yet implemented")
+
+
+        println("urlPrefix=[$urlPrefix] req.path=[${req.path}]")
+        val path = req.path.getVariable("name", FULL_PATH)
+        if (path == null) {
+            req.response {
+                it.status = 404
+            }
+            return
+        }
+        val ptr = MavenPtr.parse(path)
+        if (req.method == "GET") {
+            get(
+                req = req,
+                ptr = ptr,
+            )
+            return
+        }
+        if (req.method == "PUT") {
+            put(
+                req = req,
+                ptr = ptr,
+            )
+            return
+        }
+        req.response {
+            it.status = 404
+            println("Not Found: $ptr ${req.method}")
+        }
+    }
+
+    private suspend fun put(req: HttpRequest, ptr: MavenPtr) {
+        val oldBlobId = mavenIndexer2.find(ptr)
+        if (oldBlobId != null) {
+            mavenIndexer2.delete(ptr)
+        }
+        val length = req.headers.contentLength ?: 0uL
+        val blob = selectBlob(length.toLong())
+        if (blob == null) {
+            logger.severe("Can't find blob for storage file $ptr, length: $length bytes")
+            req.response {
+                it.status = 500
+            }
+            return
+        }
+        val blobId = Random.uuid()
+        req.readBinary().use { input ->
+            blob.store(
+                id = blobId,
+                append = false,
+                input = input
+            )
+        }
+        mavenIndexer2.upsert(
+            ptr = ptr,
+            blob = blobId,
+            storage = blob.id,
+        )
+        println("Push $ptr. headers: ${req.headers}")
+        req.response {
+            it.status = 202
+        }
+    }
+
+    private fun selectBlob(length: Long) =
+        blobs.values.asSequence().filter { it.remaining > length }.maxByOrNull { it.remaining }
+
+    private suspend fun get(req: HttpRequest, ptr: MavenPtr) {
+        req.response {
+            val blobId = mavenIndexer2.find(
+                ptr = ptr
+            )
+            if (blobId == null) {
+                logger.info("Can't find file $ptr")
+                it.status = 404
+                return@response
+            }
+            val blob = blobs[blobId.storage]
+            if (blob == null) {
+                it.status = 404
+                return@response
+            }
+            it.status = 200
+            logger.info("Founded!")
+            it.writeBinary().use { out ->
+                blob.getData(blobId.id, out)
+            }
+        }
     }
 //    init {
 //        path.mkdirs()

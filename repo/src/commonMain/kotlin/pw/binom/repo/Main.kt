@@ -34,13 +34,12 @@ private fun printHelp() {
         Platform.MINGW_X86,
         Platform.MINGW_X64 -> "D:\\repository"
 
+        Platform.JVM,
         Platform.MACOS,
         Platform.LINUX_64,
         Platform.LINUX_ARM_64,
         Platform.LINUX_ARM_32 -> "/var/repository"
 
-        Platform.JVM,
-        Platform.JS -> ""
         else -> TODO()
     }
 
@@ -77,87 +76,18 @@ fun main(args: Array<String>) {
     }.let {
         Json.decodeFromJsonElement(Config.serializer(), it)
     }
-//    val config = Config(
-//        repositories = listOf(
-//            RepositoryConfig.Docker(
-//                allowRewrite = true,
-//                allowAppend = true,
-//                urlPrefix = "/myrepo",
-//                name = "images",
-//            ),
-//            RepositoryConfig.Maven(
-//                allowRewrite = true,
-//                allowAppend = true,
-//                name = "binom",
-//                urlPrefix = "/binom",
-//            )
-//        ),
-//        userManagement = listOf(
-//            UserManagementConfig.Embedded(
-//                listOf(
-//                    UserManagementConfig.Embedded.User(
-//                        login = "admin",
-//                        password = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-//                    ),
-//                    UserManagementConfig.Embedded.User(
-//                        login = "ci",
-//                        password = "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
-//                    ),
-//                )
-//            )
-//        ),
-//        bind = listOf(
-//            BindConfig(
-//                ip = "0.0.0.0",
-//                port = 7002
-//            )
-//        ),
-//        blobStorages = listOf(
-//            BlobStorage.FileBlobStorage(
-//                root = "C:\\TEMP\\11\\blobs",
-//                id = "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
-//            )
-//        ),
-//        dataDir = "C:\\TEMP\\11\\repositories",
-//        copyBufferSize = DEFAULT_BUFFER_SIZE
-//    )
-//    val configs = HashMap<String, String>()
-//    args.forEach {
-//        if (it.startsWith("-config=")) {
-//            val configFile = File(it.removePrefix("-config="))
-//            if (configFile.isFile) {
-//                throw RuntimeException("Can't find config file ${configFile.path}")
-//            }
-//            configFile.read().bufferedAsciiReader().use {
-//                it.readText().split('\n').forEach {
-//                    val items = it.split('=', limit = 2)
-//                    configs[items[0]] = items[1]
-//                }
-//            }
-//        }
-//    }
+
     println("Config:\n")
     println(Json.encodeToString(Config.serializer(), config))
 
-//    args.forEach {
-//        if (it.startsWith("-") && "=" in it && !it.startsWith("-config=")) {
-//            val items = it.removePrefix("-").split('=', limit = 2)
-//            configs[items[0]] = items[1]
-//        }
-//    }
-//    Json.decodeFromString(ConfigObj.serializer(), configs)
-    Logger.global.handler = Logger.consoleHandler
-
-
-
-
-
-
-
 
     StrongApplication.start(
-        StrongConfiguration.web(config),
-        StrongConfiguration.mainConfiguration(config),
+        Strong.config {
+            it.define(config)
+            it.define(RootRouter())
+        },
+        StrongConfiguration.web(),
+        StrongConfiguration.mainConfiguration(),
     )
 }
 

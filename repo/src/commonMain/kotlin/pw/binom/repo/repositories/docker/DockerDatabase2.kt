@@ -1,14 +1,15 @@
 package pw.binom.repo.repositories.docker
 
+import pw.binom.UUID
 import pw.binom.concurrency.Worker
 import pw.binom.concurrency.asReference
+import pw.binom.concurrency.execute
 import pw.binom.db.sqlite.SQLiteConnector
 import pw.binom.doFreeze
 import pw.binom.io.AsyncCloseable
 import pw.binom.io.file.File
 import pw.binom.io.use
-import pw.binom.network.execute
-import pw.binom.repo.repositories.AbstractSQLiteService
+import pw.binom.repo.blob.BlobIndex
 import pw.binom.uuid
 import kotlin.random.Random
 
@@ -28,6 +29,13 @@ class DockerDatabase2(connection: SQLiteConnector, val worker: Worker) : AsyncCl
         }
     }
 
+    fun findBlobById(uuid: UUID):BlobIndex.Blob?{
+        TODO()
+    }
+
+fun findByDigest(data:ByteArray): BlobIndex.Blob?{
+    TODO()
+}
     init {
         connection.createStatement().use {
             it.executeUpdate(

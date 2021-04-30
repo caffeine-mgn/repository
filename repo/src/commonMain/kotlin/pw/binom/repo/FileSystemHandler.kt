@@ -11,7 +11,6 @@ import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.*
 import pw.binom.logger.Logger
 import pw.binom.logger.info
-import pw.binom.network.execute
 import pw.binom.network.network
 import pw.binom.pool.ObjectPool
 import kotlin.time.ExperimentalTime

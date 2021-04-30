@@ -26,9 +26,9 @@ class DockerHandler(
 ) : Handler, Repository {
 
     init {
-        if (blobs.isEmpty()) {
-            throw IllegalArgumentException("Blobs is empty")
-        }
+//        if (blobs.isEmpty()) {
+//            throw IllegalArgumentException("Blobs is empty")
+//        }
     }
 
     private val prefix = if (urlPrefix.isEmpty() || urlPrefix == "/") {
@@ -124,7 +124,7 @@ class DockerHandler(
     private suspend fun getBlob(req: HttpRequest): Boolean {
         checkAccess(req, UsersService.RepositoryOperationType.READ)
         val shaHex = req.path.getVariable("digest", "*/sha256:{digest}") ?: ""
-        val blobMeta = blobs[0].index.findByDigest(shaHex.fromHex())
+        val blobMeta = data.findByDigest(shaHex.fromHex())
         if (blobMeta == null) {
             println("Blob $shaHex not found")
             req.response {
@@ -155,7 +155,7 @@ class DockerHandler(
         val length = req.headers.contentLength
         val uuid = req.path.getVariable("digest", UPLOAD)?.toUUIDOrNull()
             ?: throw IllegalArgumentException("Invalid UUID")
-        val oldBlob = blobs[0].index.findById(uuid)
+        val oldBlob = data.findBlobById(uuid)
 //            if (oldBlob == null) {
 //                action.resp.status = 404
 //                return true
@@ -183,7 +183,7 @@ class DockerHandler(
                 }
 
                 println("Write input to file...")
-                if (blobs[0].index.findByDigest(digestStr.fromHex()) != null) {
+                if (data.findByDigest(digestStr.fromHex()) != null) {
                     checkAccess(req, UsersService.RepositoryOperationType.REWRITE)
                 }
                 req.readBinary().use { input ->
@@ -192,16 +192,17 @@ class DockerHandler(
             }
         }
         if (oldBlob == null) {
-            blobs[0].index.insert(
-                BlobIndex.Blob(
-                    id = uuid,
-                    digest = digestStr.fromHex(),
-                    size = blobs[0].getSize(uuid)?.toLong() ?: 0L,
-                    mimeType = null,
-                    uploadDate = Date(),
-                    lastUsageDate = Date(),
-                )
-            )
+            TODO("Код ниже надо как-то переделать. Он валидный")
+//            blobs[0].index.insert(
+//                BlobIndex.Blob(
+//                    id = uuid,
+//                    digest = digestStr.fromHex(),
+//                    size = blobs[0].getSize(uuid)?.toLong() ?: 0L,
+//                    mimeType = null,
+//                    uploadDate = Date(),
+//                    lastUsageDate = Date(),
+//                )
+//            )
         }
         println("Finish OK! 201")
         req.response {
@@ -252,5 +253,9 @@ class DockerHandler(
             req("access not allowed")
             throw SecurityRouter.NotAllowedException()
         }
+    }
+
+    override suspend fun asyncClose() {
+        TODO("Not yet implemented")
     }
 }
