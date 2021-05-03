@@ -9,6 +9,7 @@ import pw.binom.logger.info
 import pw.binom.logger.warn
 import pw.binom.network.NetworkAddress
 import pw.binom.network.NetworkDispatcher
+import pw.binom.repo.controllers.RepositoryController
 import pw.binom.strong.EventSystem
 import pw.binom.strong.Strong
 import pw.binom.strong.bean
@@ -21,6 +22,7 @@ object StrongConfiguration {
     fun web() =
         Strong.config { strong ->
             strong.bean { WebServerService(it) }
+            strong.bean { RepositoryController(it) }
         }
 
 
@@ -38,7 +40,7 @@ class WebServerService(strong: Strong) : Strong.InitializingBean, Strong.Destroy
     private val flex by strong.inject<RootRouter>()
     private val repositoryHandler by strong.inject<RepositoryHandler>()
     private val config by strong.inject<Config>()
-    val connectionManager by strong.inject<NetworkDispatcher>()
+    private val connectionManager by strong.inject<NetworkDispatcher>()
     private lateinit var server: HttpServer
 
     override suspend fun destroy(strong: Strong) {

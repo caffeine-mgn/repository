@@ -15,7 +15,10 @@
       "allow_rewrite": true,
       "allow_append": true,
       "url_prefix": "/binom",
-      "name": "hub"
+      "name": "hub",
+      "blobs": [
+        "35c3e36a-8ea5-49fd-8dba-190f12b81ac1"
+      ]
     }
   ],
   "user_management": [
