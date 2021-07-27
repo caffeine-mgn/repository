@@ -30,7 +30,7 @@ class RepositoryController(strong: Strong) : Strong.LinkingBean {
                 )
             }
 
-            it.writeResponse(ListSerializer(RepositoryDto.serializer()), repos)
+            it.finishResponse(ListSerializer(RepositoryDto.serializer()), repos)
         }
     }
 }

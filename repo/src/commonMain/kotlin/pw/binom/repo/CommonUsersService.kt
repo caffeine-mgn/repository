@@ -5,8 +5,8 @@ import pw.binom.repo.users.UsersService
 import pw.binom.strong.Strong
 import pw.binom.strong.inject
 
-class CommonUsersService(val strong: Strong) : UsersService {
-    val repo by strong.inject<Repo>()
+class CommonUsersService: UsersService,Strong.Bean() {
+    private val repo by strong.inject<Repo>()
     override fun getUser(login: String, password: String): UsersService.User? =
         repo.userService
             .asSequence()

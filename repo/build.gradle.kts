@@ -1,6 +1,5 @@
 plugins {
-    id("maven-publish")
-    id("org.jetbrains.kotlin.multiplatform")
+    id("kotlin-multiplatform")
     id("kotlinx-serialization")
     id("com.github.johnrengelman.shadow").version("5.2.0")
 }
@@ -40,12 +39,15 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                api("org.jetbrains.kotlin:kotlin-stdlib-common:${pw.binom.Versions.KOTLIN_VERSION}")
+                implementation(kotlin("stdlib"))
                 api("pw.binom.io:core:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:env:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:flux:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:strong-application:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:db:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:db-serialization:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:sqlite:${pw.binom.Versions.BINOM_VERSION}")
+                api("pw.binom.io:kmigrator:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:file:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:httpServer:${pw.binom.Versions.BINOM_VERSION}")
                 api("pw.binom.io:concurrency:${pw.binom.Versions.BINOM_VERSION}")

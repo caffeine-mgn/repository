@@ -1,6 +1,6 @@
 package pw.binom.repo.users
 
-import pw.binom.io.Sha256MessageDigest
+import pw.binom.crypto.Sha256MessageDigest
 import pw.binom.io.use
 import pw.binom.repo.UserManagementConfig
 import pw.binom.repo.repositories.Repository

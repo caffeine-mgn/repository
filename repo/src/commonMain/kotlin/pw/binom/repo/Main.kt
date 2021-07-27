@@ -1,31 +1,20 @@
 package pw.binom.repo
 
-import kotlinx.serialization.Polymorphic
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import JsonUtils
 import kotlinx.serialization.json.Json
-import pw.binom.*
-import pw.binom.concurrency.WorkerPool
-import pw.binom.flux.DefaultErrorHandler
+import pw.binom.Environment
+import pw.binom.Platform
 import pw.binom.flux.RootRouter
-import pw.binom.flux.exceptionHandler
-import pw.binom.flux.wrap
 import pw.binom.io.bufferedAsciiReader
-import pw.binom.io.bufferedInput
 import pw.binom.io.file.File
 import pw.binom.io.file.read
-import pw.binom.io.httpServer.*
 import pw.binom.io.readText
 import pw.binom.io.use
 import pw.binom.logger.Logger
-import pw.binom.logger.info
-import pw.binom.logger.warn
-import pw.binom.network.NetworkAddress
-import pw.binom.network.NetworkDispatcher
-import pw.binom.network.SocketClosedException
-import pw.binom.process.Signal
+import pw.binom.platform
 import pw.binom.strong.Strong
 import pw.binom.strong.StrongApplication
+import pw.binom.strong.bean
 
 val LOG = Logger.getLogger("Main")
 
@@ -83,8 +72,9 @@ fun main(args: Array<String>) {
 
     StrongApplication.start(
         Strong.config {
-            it.define(config)
-            it.define(RootRouter())
+            it.bean { ConfigService(config) }
+            it.bean { config }
+            it.bean { RootRouter() }
         },
         StrongConfiguration.web(),
         StrongConfiguration.mainConfiguration(),

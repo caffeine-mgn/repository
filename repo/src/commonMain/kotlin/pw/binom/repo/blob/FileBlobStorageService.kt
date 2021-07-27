@@ -3,6 +3,7 @@ package pw.binom.repo.blob
 import kotlinx.serialization.Serializable
 import pw.binom.*
 import pw.binom.concurrency.*
+import pw.binom.crypto.Sha256MessageDigest
 import pw.binom.db.sqlite.SQLiteConnector
 import pw.binom.io.*
 import pw.binom.io.file.*

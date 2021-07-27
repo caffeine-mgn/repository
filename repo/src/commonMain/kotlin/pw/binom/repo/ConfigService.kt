@@ -1,7 +1,7 @@
 package pw.binom.repo
 
-class ConfigService {
-    private var _config: Config? = null
+class ConfigService(config: Config) {
+    private var _config: Config? = config
     val config: Config
         get() = _config ?: throw IllegalStateException("Not configured yet")
 

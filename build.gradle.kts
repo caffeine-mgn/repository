@@ -5,13 +5,13 @@ buildscript {
 
     repositories {
         mavenCentral()
-        jcenter()
         mavenLocal()
         maven(url="https://plugins.gradle.org/m2/")
     }
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.30")
-        classpath("org.jetbrains.kotlin:kotlin-serialization:1.4.30")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${pw.binom.Versions.KOTLIN_VERSION}")
+        classpath("org.jetbrains.kotlin:kotlin-serialization:${pw.binom.Versions.KOTLIN_VERSION}")
+        classpath("pw.binom.static-css:plugin:${pw.binom.Versions.STATIC_CSS_VERSION}")
     }
 }
 

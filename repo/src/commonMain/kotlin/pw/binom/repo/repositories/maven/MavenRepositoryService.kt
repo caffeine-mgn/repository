@@ -1,7 +1,6 @@
 package pw.binom.repo.repositories.maven
 
 import pw.binom.UUID
-import pw.binom.flux.*
 import pw.binom.io.file.File
 import pw.binom.io.file.mkdirs
 import pw.binom.io.file.relative
@@ -12,10 +11,10 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
 import pw.binom.net.toPath
+import pw.binom.nextUuid
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
 import pw.binom.strong.Strong
-import pw.binom.uuid
 import kotlin.random.Random
 
 private const val FULL_PATH = "/repositories/*/{name}"
@@ -64,7 +63,7 @@ class MavenRepositoryService(
     val blobs: Map<UUID, BlobStorageService>
 ) : Repository, Handler {
 
-    private val logger = Logger.getLogger("Maven /$repositoryName")
+    private val logger = Logger.getLogger("Maven /repositories/$repositoryName")
 
     private lateinit var mavenIndexer2: MavenIndexer2
 
@@ -114,9 +113,13 @@ class MavenRepositoryService(
     }
 
     private suspend fun put(req: HttpRequest, ptr: MavenPtr) {
+        println("Searching...")
         val oldBlobId = mavenIndexer2.find(ptr)
+        println("found! oldBlobId=$oldBlobId")
         if (oldBlobId != null) {
+            println("deleting...")
             mavenIndexer2.delete(ptr)
+            println("deleted!")
         }
         val length = req.headers.contentLength ?: 0uL
         val blob = selectBlob(length.toLong())
@@ -127,7 +130,7 @@ class MavenRepositoryService(
             }
             return
         }
-        val blobId = Random.uuid()
+        val blobId = Random.nextUuid()
         req.readBinary().use { input ->
             blob.store(
                 id = blobId,
@@ -135,7 +138,8 @@ class MavenRepositoryService(
                 input = input
             )
         }
-        mavenIndexer2.upsert(
+        println("Try insert new...")
+        mavenIndexer2.insert(
             ptr = ptr,
             blob = blobId,
             storage = blob.id,
@@ -166,7 +170,7 @@ class MavenRepositoryService(
             }
             it.status = 200
             logger.info("Founded!")
-            it.writeBinary().use { out ->
+            it.sendBinary { out ->
                 blob.getData(blobId.id, out)
             }
         }

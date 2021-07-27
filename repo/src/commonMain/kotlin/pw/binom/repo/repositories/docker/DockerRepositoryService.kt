@@ -2,6 +2,7 @@ package pw.binom.repo.repositories.docker
 
 import kotlinx.serialization.json.Json
 import pw.binom.*
+import pw.binom.crypto.Sha256MessageDigest
 import pw.binom.flux.*
 import pw.binom.io.*
 import pw.binom.io.file.*

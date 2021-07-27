@@ -9,7 +9,6 @@ import pw.binom.logger.severe
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.blob.FileBlobStorageService
 import pw.binom.repo.repositories.Repository
-import pw.binom.repo.repositories.docker.DockerDatabase2
 import pw.binom.repo.repositories.docker.DockerHandler
 import pw.binom.repo.repositories.maven.MavenRepositoryService
 import pw.binom.repo.users.EmbeddedUsersService
@@ -20,7 +19,7 @@ import pw.binom.strong.Strong
 import pw.binom.strong.inject
 import pw.binom.toUUID
 
-class Repo(val strong: Strong) : Strong.InitializingBean {
+class Repo : Strong.InitializingBean,Strong.Bean() {
     private val eventSystem by strong.inject<EventSystem>()
     private val logger = Logger.getLogger("Repo")
     private val commonUsersService by strong.inject<CommonUsersService>()
@@ -65,12 +64,13 @@ class Repo(val strong: Strong) : Strong.InitializingBean {
 //                            blobs.find { it.id.toString() == f }
 //                                ?: throw IllegalArgumentException("Can't find repository \"$f\" using in DockerRepository \"${repoConfig.name}\"")
 //                        }
+                        val blobs = blobs.filter { it.key.toString() in repoConfig.blobs }
                         DockerHandler(
 //                    strong = strong,
                             urlPrefix = repoConfig.urlPrefix,
-                            data = DockerDatabase2.open(File(config.dataDir).relative(repoConfig.name)),
+                            path = File(config.dataDir).relative(repoConfig.name),
                             repo = this,
-                            blobs = emptyList(),//bb,
+                            blobs = blobs.map { it.value },//bb,
 //                    path = File(config.dataDir).relative(it.name),
                             allowRewrite = repoConfig.allowRewrite,
                             allowAppend = repoConfig.allowAppend,
@@ -92,7 +92,6 @@ class Repo(val strong: Strong) : Strong.InitializingBean {
                 }
                 repoConfig.name to repo
             }
-            println("headers: ->${handlers}")
             handlers.forEach {
                 it.value.start()
             }

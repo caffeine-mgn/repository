@@ -7,12 +7,12 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.30")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.21")
     }
 }
 
 plugins{
-        kotlin("jvm") version "1.4.30"
+        kotlin("jvm") version "1.5.21"
 }
 
 repositories {
@@ -22,8 +22,8 @@ repositories {
 }
 
 dependencies {
-    api("org.jetbrains.kotlin:kotlin-stdlib:1.4.30")
-    api("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.30")
-    api("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.4.30")
-    api("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.30")
+    api("org.jetbrains.kotlin:kotlin-stdlib:1.5.21")
+    api("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.21")
+    api("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.5.21")
+    api("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.21")
 }

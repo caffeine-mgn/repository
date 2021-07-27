@@ -1,9 +1,9 @@
 package pw.binom.repo
 
-import pw.binom.flux.*
+import pw.binom.flux.RootRouter
+import pw.binom.io.http.forEachHeader
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpServer
-import pw.binom.io.use
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.warn
@@ -27,10 +27,10 @@ object StrongConfiguration {
 
 
     fun mainConfiguration() = Strong.config { strong ->
-        strong.define(EventSystem())
-        strong.bean { RepositoryHandler(it) }
-        strong.bean { Repo(it) }
-        strong.bean { CommonUsersService(it) }
+        strong.bean { EventSystem() }
+        strong.bean { RepositoryHandler() }
+        strong.bean { Repo() }
+        strong.bean { CommonUsersService() }
     }
 }
 
@@ -57,6 +57,9 @@ class WebServerService(strong: Strong) : Strong.InitializingBean, Strong.Destroy
             flex.execute(it)
             if (it.response == null) {
                 logger.warn("Unhandled request ${it.method} ${it.request} - ${it.response?.status}")
+                it.headers.forEachHeader { s, s2 ->
+                    println("$s: $s2")
+                }
                 it.response {
                     it.status = 404
                 }

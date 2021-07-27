@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import pw.binom.*
 import pw.binom.io.*
 import pw.binom.io.file.*
+import pw.binom.io.http.forEachHeader
 import pw.binom.io.httpServer.*
 import pw.binom.pool.ObjectPool
 
@@ -37,13 +38,11 @@ fun String.fromHex(): ByteArray {
 
 fun HttpRequest.getAsCurl(): String {
     val sb = StringBuilder("curl -X ${method} https://images.binom.pw${request} -H 'Host:images.binom.pw'")
-    headers.forEach { item ->
-        when (item.key) {
-            "X-Forwarded-Proto", "Host", "Accept-Encoding", "X-Forwarded-For" -> return@forEach
+    headers.forEachHeader { key, value ->
+        when (key) {
+            "X-Forwarded-Proto", "Host", "Accept-Encoding", "X-Forwarded-For" -> return@forEachHeader
         }
-        item.value.forEach {
-            sb.append(" -H '${item.key}: $it'")
-        }
+        sb.append(" -H '${key}: $value'")
     }
     return sb.toString()
 }

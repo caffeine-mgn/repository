@@ -1,4 +1,17 @@
-apply<pw.binom.CssPlugin>()
+
+plugins {
+    id("static-css")
+}
+tasks {
+    val buildCss by getting(pw.binom.css.GenerateCss::class) {
+        outputCss.set(file("${buildDir}/output.css"))
+    }
+}
+
+//dependencies {
+//    api(project(":services:admin-styles:style-names"))
+//}
+
 /*
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
