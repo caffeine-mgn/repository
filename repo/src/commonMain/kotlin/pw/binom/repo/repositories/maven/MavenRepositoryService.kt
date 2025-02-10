@@ -1,20 +1,19 @@
 package pw.binom.repo.repositories.maven
 
-import pw.binom.UUID
 import pw.binom.io.file.File
-import pw.binom.io.file.mkdirs
-import pw.binom.io.file.relative
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
 import pw.binom.io.use
+import pw.binom.io.useAsync
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.severe
-import pw.binom.net.toPath
-import pw.binom.nextUuid
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
 import pw.binom.strong.Strong
+import pw.binom.url.toPath
+import pw.binom.uuid.UUID
+import pw.binom.uuid.nextUuid
 import kotlin.random.Random
 
 private const val FULL_PATH = "/repositories/*/{name}"
@@ -60,7 +59,7 @@ class MavenRepositoryService(
     val allowRewrite: Boolean,
     val allowAppend: Boolean,
     val path: File,
-    val blobs: Map<UUID, BlobStorageService>
+    val blobs: Map<UUID, BlobStorageService>,
 ) : Repository, Handler {
 
     private val logger = Logger.getLogger("Maven /repositories/$repositoryName")
@@ -131,7 +130,7 @@ class MavenRepositoryService(
             return
         }
         val blobId = Random.nextUuid()
-        req.readBinary().use { input ->
+        req.readBinary().useAsync { input ->
             blob.store(
                 id = blobId,
                 append = false,

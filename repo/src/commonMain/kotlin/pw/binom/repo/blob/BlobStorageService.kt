@@ -2,6 +2,9 @@ package pw.binom.repo.blob
 
 import pw.binom.*
 import pw.binom.io.AsyncCloseable
+import pw.binom.io.AsyncInput
+import pw.binom.io.AsyncOutput
+import pw.binom.uuid.UUID
 
 interface BlobStorageService : AsyncCloseable {
     val id: UUID

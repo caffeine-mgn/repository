@@ -1,15 +1,17 @@
 package pw.binom.repo.repositories.maven
 
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import pw.binom.UUID
-import pw.binom.date.Date
+import pw.binom.date.DateTime
 import pw.binom.db.async.pool.AsyncConnectionPool
 import pw.binom.db.serialization.*
 import pw.binom.db.sqlite.AsyncSQLiteConnector
 import pw.binom.io.AsyncCloseable
 import pw.binom.io.file.File
+import pw.binom.uuid.UUID
 
 private const val FILES = "files"
 private const val GROUP = "group"
@@ -37,10 +39,10 @@ data class FileEntity(
 
     @SerialName(CREATED)
     @Contextual
-    val created: Date,
+    val created: DateTime,
     @Contextual
     @SerialName(UPDATED)
-    val updated: Date,
+    val updated: DateTime,
     @Contextual
     @SerialName(BLOB_ID)
     val blobId: UUID,
@@ -61,7 +63,7 @@ class MavenIndexer2 private constructor(
         suspend fun create(
             repositoryName: String,
             pool: AsyncConnectionPool,
-            closePool: Boolean = false
+            closePool: Boolean = false,
         ): MavenIndexer2 {
 
             pool.borrow {
@@ -124,15 +126,15 @@ class MavenIndexer2 private constructor(
     }
 
     suspend fun insert(ptr: MavenPtr, blob: UUID, storage: UUID) {
-        db.re {
+        db.re2 {
             it.insert(
                 FileEntity(
                     group = ptr.group,
                     artifact = ptr.artifact,
                     version = ptr.version,
                     name = ptr.name,
-                    created = Date(),
-                    updated = Date(),
+                    created = DateTime.now,
+                    updated = DateTime.now,
                     blobId = blob,
                     storageId = storage,
                 ),
@@ -141,18 +143,15 @@ class MavenIndexer2 private constructor(
     }
 
     suspend fun find(ptr: MavenPtr) =
-        db.su {
-            it.selectFrom<FileEntity>(
-                """where "group"=:group
-                    and artifact=:artifact
-                    and name=:name
-                    and version ${if (ptr.version == null) "is null" else "=:version"}
-                """,
-                "group" to ptr.group,
-                "artifact" to ptr.artifact,
-                "version" to ptr.version,
-                "name" to ptr.name,
-            ).map {
+        db.su2 {
+            it.select(FileEntity.serializer()) {
+                """
+                   where "group"=${param(ptr.group)}
+                    and artifact=${param(ptr.artifact)}
+                    and name=${param(ptr.name)}
+                    and version ${if (ptr.version == null) "is null" else "=${param(ptr.version)}"} 
+                """
+            }.map {
                 BlobPtr(
                     storage = it.storageId,
                     id = it.blobId

@@ -1,17 +1,16 @@
 package pw.binom.repo.repositories.docker
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import pw.binom.UUID
-import pw.binom.concurrency.Worker
-import pw.binom.concurrency.execute
 import pw.binom.db.async.pool.AsyncConnectionPool
 import pw.binom.db.serialization.*
 import pw.binom.db.sqlite.AsyncSQLiteConnector
 import pw.binom.io.AsyncCloseable
 import pw.binom.io.file.File
-import pw.binom.nextUuid
+import pw.binom.uuid.UUID
+import pw.binom.uuid.nextUuid
 import kotlin.random.Random
 
 const val LABELS = "labels"
@@ -50,20 +49,17 @@ data class LabelLayoutEntity(
 
     @Contextual
     @SerialName("blob_id")
-    val blobId: UUID
+    val blobId: UUID,
 )
 
 class DockerIndex(pool: AsyncConnectionPool) : AsyncCloseable {
     companion object {
         suspend fun open(file: File): DockerIndex {
-            val worker = Worker()
-            return execute(worker) {
-                val con = AsyncConnectionPool.create(maxConnections = 1) {
-                    AsyncSQLiteConnector.openFile(file)
-                }
-                createTables(con)
-                DockerIndex(con)
+            val con = AsyncConnectionPool.create(1) {
+                AsyncSQLiteConnector.openFile(file)
             }
+            createTables(con)
+            return DockerIndex(con)
         }
 
         private suspend fun createTables(pool: AsyncConnectionPool) {
@@ -101,47 +97,63 @@ commit;
     private val db = DBContext.create(pool)
 
     suspend fun findBlobById(uuid: UUID) =
-        db.su {
-            it.selectFrom<LabelLayoutEntity>("where id=:id", "id" to uuid).firstOrNull()
+        db.su2 {
+            it.select(LabelLayoutEntity.serializer()) {
+                """
+                   select * from ${tableName<LabelLayoutEntity>()}
+                    where id=${param(uuid)}
+                """
+            }.firstOrNull()
         }
 
     suspend fun findByLayoutDigest(data: ByteArray) =
-        db.su {
-            it.selectFrom<LabelLayoutEntity>(
-                "where $LAYOUT_DIGEST=:digest limit 1",
-                "digest" to data
-            )
-                .firstOrNull()
+        db.su2 {
+            it.select(LabelLayoutEntity.serializer()) {
+                """
+                 select * from ${tableName<LabelLayoutEntity>()} where $LAYOUT_DIGEST=${param(data)} limit 1   
+                """
+            }.firstOrNull()
         }
 
     suspend fun findByLabelDigest(data: ByteArray) =
-        db.su {
-            it.selectFrom<LabelEntity>(
-                "where digest=:digest limit 1",
-                "digest" to data
-            )
-                .firstOrNull()
+        db.su2 {
+            it.select(LabelEntity.serializer()) {
+                """
+                   select * from ${tableName<LabelEntity>()}
+                   where digest=${param(data)} limit 1
+                """
+            }.firstOrNull()
         }
 
     private suspend fun findLabel(name: String, version: String) =
-        db.su {
-            it.selectFrom<LabelEntity>(
-                "where name=:name and version=:version limit 1",
-                "name" to name,
-                "version" to version
-            )
-                .firstOrNull()
+        db.su2 {
+            it.select(LabelEntity.serializer()) {
+                """
+                   select * from ${tableName<LabelEntity>()}
+                   where name=${param(name)} and version=${param(version)} limit 1
+                """
+            }.firstOrNull()
         }
 
     suspend fun upsertLabel(name: String, version: String, contentType: String, data: String, digest: ByteArray) {
-        db.re {
+        db.re2 {
             val oldLabelId = findByLabelDigest(digest)
             if (oldLabelId != null) {
-                it.deleteFrom<LabelEntity>("where $LABEL_ID=:id", "id" to oldLabelId.id)
+                it.update {
+                    """
+                       delete from ${tableName<LabelEntity>()}
+                        where $LABEL_ID=${param(oldLabelId.id)}
+                    """
+                }
             }
             val oldLabelId1 = findLabel(name = name, version = version)
             if (oldLabelId1 != null) {
-                it.deleteFrom<LabelEntity>("where digest=:digest", "digest" to oldLabelId1.id)
+                it.update {
+                    """
+                        delete from ${tableName<LabelEntity>()}
+                        where digest=${param(oldLabelId1.id)}
+                    """.trimIndent()
+                }
             }
             it.insert(
                 LabelEntity(
@@ -158,7 +170,7 @@ commit;
     }
 
     suspend fun insertLayout(id: UUID, blobId: UUID, storageId: UUID, digest: ByteArray) {
-        db.re {
+        db.re2 {
             it.insert(
                 LabelLayoutEntity(
                     id = id,
@@ -194,9 +206,14 @@ commit;
         findLabel(name = name, version = version)
 
     suspend fun getLabelByDigest(digest: ByteArray) =
-        db.su {
-            it.selectFrom<LabelEntity>("where digest=:digest limit 1", "digest" to digest).firstOrNull()
-        }
+        db.su2 {
+            it.select(LabelEntity.serializer()) {
+                """
+                select * from ${tableName<LabelEntity>()}
+                where digest=${param(digest)} limit 1
+                """
+            }//<LabelEntity>("where digest=:digest limit 1", "digest" to digest).firstOrNull()
+        }.firstOrNull()
 
     override suspend fun asyncClose() {
         db.asyncClose()

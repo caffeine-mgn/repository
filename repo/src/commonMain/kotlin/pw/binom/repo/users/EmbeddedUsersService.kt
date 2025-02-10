@@ -2,6 +2,7 @@ package pw.binom.repo.users
 
 import pw.binom.crypto.Sha256MessageDigest
 import pw.binom.io.use
+import pw.binom.io.wrap
 import pw.binom.repo.UserManagementConfig
 import pw.binom.repo.repositories.Repository
 import pw.binom.repo.toHex

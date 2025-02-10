@@ -337,12 +337,12 @@ const val DOCKER_DISTRIBUTION_API_VERSION = "Docker-Distribution-API-Version"
 
 fun File.calcSha256(bufferSize:Int): ByteArray {
     val sha = Sha256MessageDigest()
-    ByteBuffer.alloc(bufferSize).use { buf ->
-        read().use {
+    ByteBuffer(bufferSize).use { buf ->
+        openRead().use {
             while (true) {
                 buf.clear()
                 val l = it.read(buf)
-                if (l == 0) {
+                if (l.isNotAvailable) {
                     break
                 }
                 buf.flip()

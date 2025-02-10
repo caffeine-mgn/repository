@@ -6,9 +6,9 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.modules.SerializersModule
-import pw.binom.UUID
 import pw.binom.io.Closeable
 import pw.binom.repo.toHex
+import pw.binom.uuid.UUID
 
 interface DockerDatabase : Closeable {
 //    class Label(val image: String, val label: String, val manifest: DockerManifest2Single)

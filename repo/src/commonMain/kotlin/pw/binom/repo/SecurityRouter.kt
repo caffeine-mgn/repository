@@ -3,6 +3,7 @@ package pw.binom.repo
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
 import pw.binom.io.use
+import pw.binom.io.useAsync
 
 class SecurityRouter(val nextRouter: Handler) : Handler {
     class NotAllowedException : RuntimeException()
@@ -12,11 +13,11 @@ class SecurityRouter(val nextRouter: Handler) : Handler {
         try {
             nextRouter.request(req)
         } catch (e: NotAllowedException) {
-            req.response().use {
+            req.response().useAsync {
                 it.status = 403
             }
         } catch (e: InvalidAuthException) {
-            req.response().use {
+            req.response().useAsync {
                 it.status = 401
             }
         }

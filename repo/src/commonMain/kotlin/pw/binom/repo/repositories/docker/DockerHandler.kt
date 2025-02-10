@@ -4,21 +4,21 @@ import pw.binom.copyTo
 import pw.binom.crypto.Sha256MessageDigest
 import pw.binom.io.ByteArrayOutput
 import pw.binom.io.file.File
-import pw.binom.io.file.mkdirs
-import pw.binom.io.file.relative
 import pw.binom.io.http.Headers
 import pw.binom.io.httpServer.Handler
 import pw.binom.io.httpServer.HttpRequest
 import pw.binom.io.use
+import pw.binom.io.useAsync
+import pw.binom.io.wrap
 import pw.binom.logger.Logger
 import pw.binom.logger.infoSync
 import pw.binom.logger.warnSync
-import pw.binom.nextUuid
 import pw.binom.repo.*
 import pw.binom.repo.blob.BlobStorageService
 import pw.binom.repo.repositories.Repository
 import pw.binom.repo.users.UsersService
-import pw.binom.toUUIDOrNull
+import pw.binom.uuid.nextUuid
+import pw.binom.uuid.toUUIDOrNull
 import pw.binom.wrap
 import kotlin.random.Random
 
@@ -28,7 +28,7 @@ class DockerHandler(
 //    val data: DockerDatabase2,
     val path: File,
     val blobs: List<BlobStorageService>,
-    val repo: Repo,
+//    val repo: Repo,
     val allowAppend: Boolean,
     val allowRewrite: Boolean,
     val usersService: UsersService,
@@ -80,7 +80,7 @@ class DockerHandler(
             else -> null
         }
         if (u == null) {
-            req.response().use {
+            req.response().useAsync {
                 it.status = 400
             }
         }
@@ -102,7 +102,7 @@ class DockerHandler(
 
     private suspend fun index(req: HttpRequest) {
         checkAccess(req, UsersService.RepositoryOperationType.READ)
-        req.response().use {
+        req.response().useAsync {
             it.status = 200
             it.headers.keepAlive = false
             it.headers[DOCKER_DISTRIBUTION_API_VERSION] = "registry/2.0"
@@ -112,21 +112,21 @@ class DockerHandler(
     private suspend fun uploadBlob(req: HttpRequest): Boolean {
         checkAccess(req, UsersService.RepositoryOperationType.WRITE)
         val uuid = req.path.getVariable("digest", UPLOAD) ?: ""
-            val blobSize = req.readBinary().use { input ->
-                    blobs[0].store(
-                        id = uuid.toUUIDOrNull() ?: throw IllegalArgumentException("Invalid UUID"),
-                        append = false,
-                        input = input,
-                    )
-            }
-            req.response {
-                it.status = 202
-                it.headers.keepAlive = false
-                it.headers.location = "/v2/blobs/$uuid"
-                it.headers[Headers.RANGE] = "0-${blobSize.toULong()}"
-                it.headers.contentLength = 0uL
-                it.headers[DOCKER_UPLOAD_UUID] = uuid
-            }
+        val blobSize = req.readBinary().useAsync { input ->
+            blobs[0].store(
+                id = uuid.toUUIDOrNull() ?: throw IllegalArgumentException("Invalid UUID"),
+                append = false,
+                input = input,
+            )
+        }
+        req.response {
+            it.status = 202
+            it.headers.keepAlive = false
+            it.headers.location = "/v2/blobs/$uuid"
+            it.headers[Headers.RANGE] = "0-${blobSize.toULong()}"
+            it.headers.contentLength = 0uL
+            it.headers[DOCKER_UPLOAD_UUID] = uuid
+        }
         return true
     }
 
@@ -152,7 +152,7 @@ class DockerHandler(
             it.headers.contentType = label.contentType
             it.headers.contentLength = data.size.toULong()
 //            if (req.method.lowercase() == "get") {
-            it.startWriteBinary().use { w ->
+            it.startWriteBinary().useAsync { w ->
                 data.wrap { data ->
                     w.write(data)
                 }
@@ -194,7 +194,7 @@ class DockerHandler(
 
     private suspend fun uploadManifest(req: HttpRequest): Boolean {
         val manifest = ByteArrayOutput()
-        req.readBinary().use {
+        req.readBinary().useAsync {
             it.copyTo(manifest)
         }
 
@@ -235,7 +235,7 @@ class DockerHandler(
 
     private suspend fun finishUploadBlob(req: HttpRequest): Boolean {
         checkAccess(req, UsersService.RepositoryOperationType.WRITE)
-        val digestStr = req.query?.firstOrNull("digest")?.removePrefix("sha256:") ?: return false
+        val digestStr: String = TODO()//req.query?.firstOrNull("digest")?.removePrefix("sha256:") ?: return false
         val length = req.headers.contentLength
         val uuid = req.path.getVariable("digest", UPLOAD)?.toUUIDOrNull()
             ?: throw IllegalArgumentException("Invalid UUID")
@@ -283,7 +283,7 @@ class DockerHandler(
                 if (data.findByLayoutDigest(digestStr.fromHex()) != null) {
                     checkAccess(req, UsersService.RepositoryOperationType.REWRITE)
                 }
-                req.readBinary().use { input ->
+                req.readBinary().useAsync { input ->
                     blobs[0].store(id = uuid, append = true, input = input)
                 }
                 data.insertLayout(

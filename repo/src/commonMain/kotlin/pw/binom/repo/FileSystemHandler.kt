@@ -1,23 +1,8 @@
 package pw.binom.repo
 
-import pw.binom.ByteBuffer
-import pw.binom.DEFAULT_BUFFER_SIZE
-import pw.binom.concurrency.asReference
-import pw.binom.concurrency.free
-import pw.binom.copyTo
-import pw.binom.io.*
-import pw.binom.io.http.BasicAuth
-import pw.binom.io.http.Headers
-import pw.binom.io.httpServer.*
-import pw.binom.logger.Logger
-import pw.binom.logger.info
-import pw.binom.network.network
-import pw.binom.pool.ObjectPool
-import kotlin.time.ExperimentalTime
-import kotlin.time.measureTime
 
 private fun contentTypeByExt(ext: String) =
-    when (ext.toLowerCase()) {
+    when (ext.lowercase()) {
         "zip" -> "application/zip"
         "pom", "xml" -> "application/xml"
         "svg" -> "image/svg+xml"

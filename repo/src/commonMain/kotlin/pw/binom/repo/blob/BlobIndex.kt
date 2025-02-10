@@ -1,8 +1,8 @@
 package pw.binom.repo.blob
 
-import pw.binom.UUID
 import pw.binom.date.Date
 import pw.binom.io.AsyncCloseable
+import pw.binom.uuid.UUID
 
 interface BlobIndex : AsyncCloseable {
     data class Blob(

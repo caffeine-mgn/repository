@@ -3,7 +3,6 @@ package pw.binom.repo
 import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import pw.binom.UUID
 
 @Polymorphic
 @Serializable

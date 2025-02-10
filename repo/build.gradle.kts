@@ -1,20 +1,15 @@
 plugins {
-    id("kotlin-multiplatform")
-    id("kotlinx-serialization")
-    id("com.github.johnrengelman.shadow").version("5.2.0")
+//    kotlin("multiplatform")
+//    id("com.github.johnrengelman.shadow")
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.shadow)
 }
 
 val nativeEntryPoint = "pw.binom.repo.main"
 
 kotlin {
     linuxX64 {
-        binaries {
-            executable {
-                entryPoint = nativeEntryPoint
-            }
-        }
-    }
-    linuxArm32Hfp { // Use your target instead.
         binaries {
             executable {
                 entryPoint = nativeEntryPoint
@@ -28,72 +23,77 @@ kotlin {
             }
         }
     }
-    mingwX86 { // Use your target instead.
-        binaries {
-            executable {
-                entryPoint = nativeEntryPoint
-            }
-        }
-    }
     jvm()
     sourceSets {
         val commonMain by getting {
             dependencies {
                 implementation(kotlin("stdlib"))
-                api("pw.binom.io:core:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:env:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:flux:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:strong-application:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:db:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:db-serialization:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:sqlite:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:kmigrator:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:file:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:httpServer:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:concurrency:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:xml:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:logger:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:process:${pw.binom.Versions.BINOM_VERSION}")
-                api("pw.binom.io:webdav:${pw.binom.Versions.BINOM_VERSION}")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-core:${pw.binom.Versions.SERIALIZATION_VERSION}")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-json:${pw.binom.Versions.SERIALIZATION_VERSION}")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-properties:${pw.binom.Versions.SERIALIZATION_VERSION}")
+                api(dependencies.platform("pw.binom.io:bom:${libs.versions.binom.get()}"))
+                api("pw.binom.io:core")
+                api("pw.binom.io:env")
+                api("pw.binom.io:flux")
+                api("pw.binom.io:db")
+                api("pw.binom.io:db-serialization")
+                api("pw.binom.io:sqlite")
+                api("pw.binom.io:strong")
+                api("pw.binom.io:strong-properties-yaml")
+                api("pw.binom.io:strong-properties-ini")
+                api("pw.binom.io:strong-web-server")
+                api("pw.binom.io:signal")
+                api("pw.binom.io:kmigrator")
+                api("pw.binom.io:file")
+                api("pw.binom.io:httpServer")
+                api("pw.binom.io:concurrency")
+                api("pw.binom.io:xml")
+                api("pw.binom.io:logger")
+                api("pw.binom.io:process")
+                api("pw.binom.io:webdav")
+                api(libs.kotlinx.serialization.json)
+//                api(libs.kotlinx.serialization.protobuf)
+                api(libs.kotlinx.coroutines)
+//                api("org.jetbrains.kotlinx:kotlinx-serialization-core:${pw.binom.Versions.SERIALIZATION_VERSION}")
+//                api("org.jetbrains.kotlinx:kotlinx-serialization-json:${pw.binom.Versions.SERIALIZATION_VERSION}")
+//                api("org.jetbrains.kotlinx:kotlinx-serialization-properties:${pw.binom.Versions.SERIALIZATION_VERSION}")
             }
+        }
+        commonTest.dependencies {
+            api(dependencies.platform("pw.binom.io:bom:${libs.versions.binom.get()}"))
+            api("pw.binom.io:testing")
         }
 
-        val nativeMain by creating {
-            dependencies {
-                dependsOn(commonMain)
-            }
-        }
-        val linuxX64Main by getting {
-            dependencies {
-                dependsOn(nativeMain)
-            }
-        }
-        val mingwX64Main by getting {
-            dependencies {
-                dependsOn(linuxX64Main)
-            }
-        }
-
-        val mingwX86Main by getting {
-            dependencies {
-                dependsOn(mingwX64Main)
-            }
-        }
-
-        val linuxArm32HfpMain by getting {
-            dependencies {
-                dependsOn(linuxX64Main)
-            }
-        }
-
-        val jvmMain by getting {
-            dependencies {
-                api("org.jetbrains.kotlin:kotlin-stdlib:${pw.binom.Versions.KOTLIN_VERSION}")
-            }
-        }
+//        val nativeMain by creating {
+//            dependencies {
+//                dependsOn(commonMain)
+//            }
+//        }
+//        val linuxX64Main by getting {
+//            dependencies {
+//                dependsOn(nativeMain)
+//            }
+//        }
+//        val mingwX64Main by getting {
+//            dependencies {
+//                dependsOn(linuxX64Main)
+//            }
+//        }
+//
+//        val mingwX86Main by getting {
+//            dependencies {
+//                dependsOn(mingwX64Main)
+//            }
+//        }
+//
+//        val linuxArm32HfpMain by getting {
+//            dependencies {
+//                dependsOn(linuxX64Main)
+//            }
+//        }
+//
+//        val jvmMain by getting {
+//            dependencies {
+//                api("org.jetbrains.kotlin:kotlin-stdlib:${pw.binom.Versions.KOTLIN_VERSION}")
+//            }
+//        }
     }
 }
 
@@ -103,6 +103,10 @@ tasks {
     val shadowJar by creating(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
         from(jvmJar.archiveFile)
         configurations = listOf(project.configurations["jvmRuntimeClasspath"])
+        exclude("META-INF/*.SF")
+        exclude("META-INF/*.DSA")
+        exclude("META-INF/*.RSA")
+        exclude("META-INF/*.txt")
         manifest {
             attributes("Main-Class" to "pw.binom.repo.JvmMain")
         }
