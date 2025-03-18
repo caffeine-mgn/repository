@@ -9,12 +9,15 @@ import pw.binom.logger.info
 import kotlin.time.Duration
 
 class CacheMavenRepository(
-    id: String,
+    private val id: String,
     private val source: MavenRepository,
     private val cache: MavenRepository,
     override val readOnly: Boolean,
     val copingTimeout: Duration,
 ) : MavenRepository {
+    override fun toString(): String =
+        "CacheMavenRepository(id=$id,copingTimeout=$copingTimeout,source=$source,cache=$cache)"
+
     private val logger = Logger.getLogger("CacheMavenRepository $id")
     override suspend fun get(group: MavenGroup, artifact: String, version: MavenVersion, file: String): AsyncInput? {
         if (version.isSnapshot) {
@@ -69,7 +72,7 @@ class CacheMavenRepository(
             version = version,
             file = file,
         )
-        if (storageSize!=null) {
+        if (storageSize != null) {
             logger.info("File exist!")
             return storageSize
         }
@@ -103,6 +106,9 @@ class CacheMavenRepository(
 
     override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? =
         source.getMetaData(group = group, artifact = artifact)
+
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? =
+        source.getMetaData(group = group, artifact = artifact, version = version)
 
     override suspend fun getMetaDataMd5(group: MavenGroup, artifact: String) =
         source.getMetaDataMd5(group, artifact)

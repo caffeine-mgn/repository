@@ -18,7 +18,7 @@ import pw.binom.url.toPath
 import kotlin.time.Duration
 
 class ExternalMavenRepository(
-    id: String,
+    private val id: String,
     val client: HttpClientRunnable,
     val url: URL,
     val auth: HttpAuthProperties?,
@@ -26,6 +26,8 @@ class ExternalMavenRepository(
     override val readOnly: Boolean,
 ) : MavenRepository {
     private val logger = Logger.getLogger("ExternalMavenRepository $id")
+    override fun toString(): String =
+        "ExternalMavenRepository(id=$id,url=$url,auth=$auth,getTimeout=$getTimeout)"
 
     class AutoCloseAsyncInput(val delegate: AsyncInput, val closable: AsyncCloseable) : AsyncInput by delegate {
         override suspend fun asyncClose() {
@@ -135,6 +137,10 @@ class ExternalMavenRepository(
     }
 
     override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? {
         TODO("Not yet implemented")
     }
 }

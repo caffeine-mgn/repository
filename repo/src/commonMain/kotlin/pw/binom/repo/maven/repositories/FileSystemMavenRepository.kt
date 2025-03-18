@@ -13,11 +13,14 @@ import pw.binom.logger.info
 import pw.binom.logger.warn
 
 class FileSystemMavenRepository(
-    id: String,
+    private val id: String,
     private val root: File,
     override val readOnly: Boolean,
 ) : MavenRepository {
     private val logger = Logger.getLogger("FileSystemMavenRepository $id")
+    override fun toString(): String =
+        "FileSystemMavenRepository(id=$id,root=$root)"
+
     override suspend fun isExist(group: MavenGroup, artifact: String, version: MavenVersion, file: String): Long? =
         group.resolve(root)
             .relative(artifact)
@@ -73,7 +76,10 @@ class FileSystemMavenRepository(
     override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? {
         val direction = group.resolve(root)
             .takeIfDirection()
-            ?: return null
+        logger.info("dir=${group.resolve(root)} ${group.resolve(root).isDirectory}")
+        if (direction==null){
+            return null
+        }
         val versions = direction
             .list()
             .filter { it.isDirectory }.map { MavenVersion(it.name) }
@@ -91,5 +97,9 @@ class FileSystemMavenRepository(
             latest = last,
             release = lastRelease,
         )
+    }
+
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? {
+        TODO("Not yet implemented")
     }
 }

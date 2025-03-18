@@ -4,7 +4,7 @@ import pw.binom.crypto.MD5MessageDigest
 import pw.binom.crypto.Sha1MessageDigest
 import pw.binom.date.format.toDatePattern
 import pw.binom.io.AsyncInput
-import pw.binom.io.DataTransferSize
+import pw.binom.repo.maven.MavenVersion
 
 interface MavenRepository {
     companion object {
@@ -32,7 +32,8 @@ interface MavenRepository {
         throw IllegalStateException("Repository not support mutation")
     }
 
-    suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData?
+    suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata?
+    suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MavenMetadata?
     suspend fun getMetaDataMd5(group: MavenGroup, artifact: String): ByteArray? {
         val data = getMetaDataText(group = group, artifact = artifact)?.encodeToByteArray() ?: return null
         val d = MD5MessageDigest()
@@ -48,7 +49,7 @@ interface MavenRepository {
     }
 
     suspend fun getMetaDataText(group: MavenGroup, artifact: String): String? {
-        val meta = getMetaData(group = group, artifact) ?: return null
+        val meta = getMetaData(group = group, artifact = artifact) ?: return null
         val sb = StringBuilder()
         sb.appendLine("<?xml version='1.0' encoding='US-ASCII'?>")
             .appendLine("<metadata>")

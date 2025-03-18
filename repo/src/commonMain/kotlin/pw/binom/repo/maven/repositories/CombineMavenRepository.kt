@@ -8,9 +8,11 @@ import pw.binom.date.maxOf
 import pw.binom.io.AsyncInput
 import kotlin.coroutines.coroutineContext
 
-class CombineMavenRepository(
+data class CombineMavenRepository(
     val list: List<MavenRepository>,
 ) : MavenRepository {
+    override fun toString(): String =
+        "CombineMavenRepository(list=$list)"
 
     override suspend fun get(group: MavenGroup, artifact: String, version: MavenVersion, file: String): AsyncInput? =
         list
@@ -32,7 +34,7 @@ class CombineMavenRepository(
             .mapNotNull { it.isExist(group = group, artifact = artifact, version = version, file = file) }
             .firstOrNull()
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? {
+    override suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata? {
         val metaDateList = list.map {
             GlobalScope.async(coroutineContext) {
                 it.getMetaData(group = group, artifact = artifact)
@@ -41,33 +43,18 @@ class CombineMavenRepository(
         if (metaDateList.isEmpty()) {
             return null
         }
-        if (metaDateList.size == 1) {
-            return metaDateList.first()
-        }
-        return metaDateList.reduce { acc, metaData ->
-            val latest = versionMaxOf(acc.latest, metaData.latest)
-            val release = versionMaxOf(acc.release, metaData.release)
-            val version = versionMaxOf(acc.version, metaData.version)
-            val lastUpdate = maxOf(acc.lastUpdate, metaData.lastUpdate)
-            val versions = (acc.versions + metaData.versions).sorted()
-            MetaData(
-                latest = latest,
-                release = release,
-                version = version,
-                lastUpdate = lastUpdate,
-                versions = versions,
-                groupId = group,
-                artifactId = artifact,
-            )
-        }
+        return MavenMetadata.combine(metaDateList)
     }
 
-    private fun versionMaxOf(a: MavenVersion?, b: MavenVersion?): MavenVersion? =
-        when {
-            a == null && b == null -> null
-            a != null && b == null -> a
-            a == null && b != null -> b
-            a != null && b != null -> if (a > b) a else b
-            else -> b
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MavenMetadata? {
+        val metaDateList = list.map {
+            GlobalScope.async(coroutineContext) {
+                it.getMetaData(group = group, artifact = artifact, version = version)
+            }
+        }.awaitAll().filterNotNull()
+        if (metaDateList.isEmpty()) {
+            return null
         }
+        return MavenMetadata.combine(metaDateList)
+    }
 }
