@@ -44,7 +44,7 @@ kotlin {
                 api("pw.binom.io:file")
                 api("pw.binom.io:httpServer")
                 api("pw.binom.io:concurrency")
-                api("pw.binom.io:xml")
+                api("pw.binom.io:xml-serialization")
                 api("pw.binom.io:logger")
                 api("pw.binom.io:process")
                 api("pw.binom.io:webdav")
