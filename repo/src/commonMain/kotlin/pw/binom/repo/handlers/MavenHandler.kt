@@ -9,8 +9,9 @@ import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.repo.AbstractHttpHandler
 import pw.binom.repo.repositories.maven.MavenGroup
-import pw.binom.repo.repositories.maven.MavenRepository
-import pw.binom.repo.repositories.maven.MavenVersion
+import pw.binom.repo.maven.repositories.MavenRepository
+import pw.binom.repo.repositories.maven.MavenResource
+import pw.binom.repo.maven.MavenVersion
 
 class MavenHandler(
     val repository: MavenRepository,
@@ -26,7 +27,7 @@ class MavenHandler(
         private const val CONTENT_TYPE_JSON = "application/json"
     }
 
-    private val logger by Logger.ofThisOrGlobal
+    private val logger = Logger.getLogger("MavenHandler $repository")
 
     private fun fileNameToMime(fileName: String) =
         when {
@@ -44,12 +45,21 @@ class MavenHandler(
 
     @OptIn(ExperimentalStdlibApi::class)
     override suspend fun processing(exchange: HttpServerExchange) {
-        val elements = ArrayList(exchange.path.removeRoot()!!.elements)
-        val fileName = elements.removeLast()
+        val resource = MavenResource.parseURI(exchange.path.raw.removePrefix("/"))
+        val artifactName = resource.artifact
+        val group = resource.group
+        val version = (resource as? MavenResource.InVersion)?.version
+        val fileName = resource.file
+
+        val input = if (version == null) {
+            repository.getBlob(group = group, artifact = artifactName, file = fileName)
+        } else {
+            repository.getBlob(group = group, artifact = artifactName, file = fileName, version = version)
+        }
+
 
         if (fileName == MAVEN_METADATA_XML || fileName == MAVEN_METADATA_XML_MD5 || fileName == MAVEN_METADATA_XML_SHA1) {
-            val artifactName = elements.removeLast()
-            val group = MavenGroup(elements.joinToString("."))
+            logger.info("$group:$artifactName/$fileName")
             when (fileName) {
                 MAVEN_METADATA_XML -> {
                     val metadataText = repository.getMetaDataText(group = group, artifact = artifactName)
