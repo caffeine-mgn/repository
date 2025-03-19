@@ -14,28 +14,20 @@ import pw.binom.io.file.readText
 import pw.binom.io.file.workDirectoryFile
 import pw.binom.io.http.BasicAuth
 import pw.binom.io.http.BearerAuth
-import pw.binom.io.http.HttpAuth
 import pw.binom.io.httpClient.*
-import pw.binom.io.socket.DomainSocketAddress
-import pw.binom.io.socket.SocketAddress
 import pw.binom.logger.Logger
 import pw.binom.network.MultiFixedSizeThreadNetworkDispatcher
-import pw.binom.network.NetworkManager
 import pw.binom.platform
 import pw.binom.properties.ini.addIni
-import pw.binom.repo.handlers.MavenHandler
 import pw.binom.repo.properties.ProxyProperties
-import pw.binom.repo.repositories.maven.FileSystemMavenRepository
 import pw.binom.repo.services.ConfigService
 import pw.binom.repo.services.HttpServerService
 import pw.binom.repo.services.MavenRepositoriesService
 import pw.binom.signal.Signal
 import pw.binom.strong.Strong
 import pw.binom.strong.bean
-import pw.binom.strong.inject
 import pw.binom.strong.properties.StrongProperties
 import pw.binom.strong.properties.yaml.addYaml
-import pw.binom.strong.web.server.WebConfig
 import pw.binom.url.isWildcardMatch
 
 val LOG = Logger.getLogger("Main")

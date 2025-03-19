@@ -1,23 +1,24 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven.repositories
 
 import kotlinx.coroutines.withTimeoutOrNull
 import pw.binom.SafeException
 import pw.binom.io.AsyncCloseable
 import pw.binom.io.AsyncInput
 import pw.binom.io.http.*
-import pw.binom.io.httpClient.HttpClient
 import pw.binom.io.httpClient.HttpClientRunnable
-import pw.binom.io.httpClient.HttpRequest
 import pw.binom.io.httpClient.HttpRequestBuilder
 import pw.binom.io.useAsync
 import pw.binom.logger.Logger
 import pw.binom.logger.info
+import pw.binom.repo.maven.MavenVersion
 import pw.binom.repo.properties.HttpAuthProperties
+import pw.binom.repo.repositories.maven.MavenGroup
+import pw.binom.repo.repositories.maven.MavenMetadata
 import pw.binom.url.URL
 import pw.binom.url.toPath
 import kotlin.time.Duration
 
-class ExternalMavenRepository(
+data class ExternalMavenRepository(
     private val id: String,
     val client: HttpClientRunnable,
     val url: URL,
@@ -136,11 +137,11 @@ class ExternalMavenRepository(
         TODO("Not yet implemented")
     }
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? {
+    override suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata? {
         TODO("Not yet implemented")
     }
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? {
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MavenMetadata? {
         TODO("Not yet implemented")
     }
 }

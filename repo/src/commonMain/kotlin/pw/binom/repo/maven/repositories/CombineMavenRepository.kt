@@ -1,11 +1,13 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven.repositories
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
-import pw.binom.date.maxOf
 import pw.binom.io.AsyncInput
+import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.repositories.maven.MavenGroup
+import pw.binom.repo.repositories.maven.MavenMetadata
 import kotlin.coroutines.coroutineContext
 
 data class CombineMavenRepository(

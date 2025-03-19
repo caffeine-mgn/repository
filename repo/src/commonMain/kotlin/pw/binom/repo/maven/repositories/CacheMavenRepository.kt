@@ -1,14 +1,15 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven.repositories
 
 import kotlinx.coroutines.withTimeoutOrNull
 import pw.binom.io.AsyncInput
-import pw.binom.io.DataTransferSize
 import pw.binom.io.useAsync
 import pw.binom.logger.Logger
 import pw.binom.logger.info
+import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.repositories.maven.MavenGroup
 import kotlin.time.Duration
 
-class CacheMavenRepository(
+data class CacheMavenRepository(
     private val id: String,
     private val source: MavenRepository,
     private val cache: MavenRepository,
@@ -104,10 +105,10 @@ class CacheMavenRepository(
         )
     }
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? =
+    override suspend fun getMetaData(group: MavenGroup, artifact: String) =
         source.getMetaData(group = group, artifact = artifact)
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? =
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion) =
         source.getMetaData(group = group, artifact = artifact, version = version)
 
     override suspend fun getMetaDataMd5(group: MavenGroup, artifact: String) =

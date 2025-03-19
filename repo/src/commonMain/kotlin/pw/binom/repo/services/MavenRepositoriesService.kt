@@ -1,12 +1,11 @@
 package pw.binom.repo.services
 
 import pw.binom.io.file.File
-import pw.binom.io.httpClient.HttpClient
 import pw.binom.io.httpClient.HttpClientRunnable
 import pw.binom.logger.Logger
 import pw.binom.logger.infoSync
+import pw.binom.repo.maven.repositories.*
 import pw.binom.repo.properties.MavenRepositoryProperty
-import pw.binom.repo.repositories.maven.*
 import pw.binom.strong.inject
 
 class MavenRepositoriesService {

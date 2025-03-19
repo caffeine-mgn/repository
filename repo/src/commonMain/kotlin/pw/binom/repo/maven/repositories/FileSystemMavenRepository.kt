@@ -1,18 +1,20 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven.repositories
 
 import pw.binom.asyncInput
 import pw.binom.asyncOutput
 import pw.binom.copyTo
 import pw.binom.date.DateTime
 import pw.binom.io.AsyncInput
-import pw.binom.io.DataTransferSize
 import pw.binom.io.file.*
 import pw.binom.io.use
 import pw.binom.logger.Logger
 import pw.binom.logger.info
 import pw.binom.logger.warn
+import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.repositories.maven.MavenGroup
+import pw.binom.repo.repositories.maven.MavenMetadata
 
-class FileSystemMavenRepository(
+data class FileSystemMavenRepository(
     private val id: String,
     private val root: File,
     override val readOnly: Boolean,
@@ -56,7 +58,7 @@ class FileSystemMavenRepository(
         from: AsyncInput,
     ) {
         if (readOnly) {
-            TODO()
+            throw IllegalStateException("Can't push artifact: repository works as read only mode")
         }
         val dir = group.resolve(root).relative(artifact).relative(version.asString)
         dir.mkdirs()
@@ -73,11 +75,11 @@ class FileSystemMavenRepository(
         }
     }
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String): MetaData? {
+    override suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata? {
         val direction = group.resolve(root)
             .takeIfDirection()
         logger.info("dir=${group.resolve(root)} ${group.resolve(root).isDirectory}")
-        if (direction==null){
+        if (direction == null) {
             return null
         }
         val versions = direction
@@ -85,21 +87,35 @@ class FileSystemMavenRepository(
             .filter { it.isDirectory }.map { MavenVersion(it.name) }
         val last = versions.maxOrNull()
         val lastRelease = versions.asSequence().filter { !it.isSnapshot }.maxOrNull()
-        return MetaData(
+        return MavenMetadata(
             groupId = group,
             artifactId = artifact,
             version = last,
-            versions = versions,
-            lastUpdate = last?.let { direction.relative(it.asString) }
-                ?.takeIfDirection()
-                ?.lastModified?.let { DateTime(it) }
-                ?: DateTime.now,
-            latest = last,
-            release = lastRelease,
+            versioning = MavenMetadata.Versioning(
+                latest = last,
+                versions = versions,
+                lastUpdated = last?.let { direction.relative(it.asString) }
+                    ?.takeIfDirection()
+                    ?.lastModified?.let { DateTime(it) }
+                    ?: DateTime.now,
+                release = lastRelease
+            )
         )
+//        return MetaData(
+//            groupId = group,
+//            artifactId = artifact,
+//            version = last,
+//            versions = versions,
+//            lastUpdate = last?.let { direction.relative(it.asString) }
+//                ?.takeIfDirection()
+//                ?.lastModified?.let { DateTime(it) }
+//                ?: DateTime.now,
+//            latest = last,
+//            release = lastRelease,
+//        )
     }
 
-    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MetaData? {
+    override suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MavenMetadata? {
         TODO("Not yet implemented")
     }
 }

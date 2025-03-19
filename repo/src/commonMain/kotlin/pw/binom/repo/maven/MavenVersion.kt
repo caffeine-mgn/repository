@@ -1,4 +1,4 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

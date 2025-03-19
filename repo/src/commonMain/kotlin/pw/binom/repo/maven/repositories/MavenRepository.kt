@@ -1,14 +1,23 @@
-package pw.binom.repo.repositories.maven
+package pw.binom.repo.maven.repositories
 
+import pw.binom.asyncInput
 import pw.binom.crypto.MD5MessageDigest
 import pw.binom.crypto.Sha1MessageDigest
 import pw.binom.date.format.toDatePattern
 import pw.binom.io.AsyncInput
+import pw.binom.io.ByteArrayInput
+import pw.binom.io.StringReader
 import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.repositories.maven.MavenGroup
+import pw.binom.repo.repositories.maven.MavenMetadata
+import pw.binom.xml.serialization.Xml
 
 interface MavenRepository {
     companion object {
         private val datePattern = "yyyyMMddHHmmss".toDatePattern()
+        const val MAVEN_METADATA_XML = "maven-metadata.xml"
+        const val MAVEN_METADATA_XML_MD5 = "maven-metadata.xml.md5"
+        const val MAVEN_METADATA_XML_SHA1 = "maven-metadata.xml.sha1"
     }
 
     suspend fun get(
@@ -25,6 +34,58 @@ interface MavenRepository {
         file: String,
     ): Long?
 
+    suspend fun getBlob(
+        group: MavenGroup,
+        artifact: String,
+        version: MavenVersion,
+        file: String,
+    ): AsyncInput? =
+        when (file) {
+            MAVEN_METADATA_XML -> getMetaDataText(
+                group = group,
+                artifact = artifact,
+                version = version,
+            )?.encodeToByteArray()?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            MAVEN_METADATA_XML_MD5 -> getMetaDataMd5(
+                group = group,
+                artifact = artifact,
+                version = version,
+            )?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            MAVEN_METADATA_XML_SHA1 -> getMetaDataMd5(
+                group = group,
+                artifact = artifact,
+                version = version,
+            )?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            else -> get(group = group, artifact = artifact, version = version, file = file)
+        }
+
+    suspend fun getBlob(
+        group: MavenGroup,
+        artifact: String,
+        file: String,
+    ): AsyncInput? =
+        when (file) {
+            MAVEN_METADATA_XML -> getMetaDataText(
+                group = group,
+                artifact = artifact,
+            )?.encodeToByteArray()?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            MAVEN_METADATA_XML_MD5 -> getMetaDataMd5(
+                group = group,
+                artifact = artifact,
+            )?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            MAVEN_METADATA_XML_SHA1 -> getMetaDataMd5(
+                group = group,
+                artifact = artifact,
+            )?.let { ByteArrayInput(it) }?.asyncInput(callClose = true)
+
+            else -> null
+        }
+
     val readOnly: Boolean
         get() = true
 
@@ -32,8 +93,31 @@ interface MavenRepository {
         throw IllegalStateException("Repository not support mutation")
     }
 
-    suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata?
     suspend fun getMetaData(group: MavenGroup, artifact: String, version: MavenVersion): MavenMetadata?
+    suspend fun getMetaDataMd5(group: MavenGroup, artifact: String, version: MavenVersion): ByteArray? {
+        val data =
+            getMetaDataText(group = group, artifact = artifact, version = version)?.encodeToByteArray() ?: return null
+        val d = MD5MessageDigest()
+        d.update(data)
+        return d.finish()
+    }
+
+    suspend fun getMetaDataSha1(group: MavenGroup, artifact: String, version: MavenVersion): ByteArray? {
+        val data =
+            getMetaDataText(group = group, artifact = artifact, version = version)?.encodeToByteArray() ?: return null
+        val d = Sha1MessageDigest()
+        d.update(data)
+        return d.finish()
+    }
+
+    suspend fun getMetaDataText(group: MavenGroup, artifact: String, version: MavenVersion): String? =
+        getMetaData(group = group, artifact = artifact, version = version)
+            ?.let {
+                Xml().encodeToString(MavenMetadata.serializer(), it)
+            }
+
+
+    suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata?
     suspend fun getMetaDataMd5(group: MavenGroup, artifact: String): ByteArray? {
         val data = getMetaDataText(group = group, artifact = artifact)?.encodeToByteArray() ?: return null
         val d = MD5MessageDigest()
@@ -48,35 +132,9 @@ interface MavenRepository {
         return d.finish()
     }
 
-    suspend fun getMetaDataText(group: MavenGroup, artifact: String): String? {
-        val meta = getMetaData(group = group, artifact = artifact) ?: return null
-        val sb = StringBuilder()
-        sb.appendLine("<?xml version='1.0' encoding='US-ASCII'?>")
-            .appendLine("<metadata>")
-            .append("<groupId>").append(meta.groupId.asString).appendLine("</groupId>")
-            .append("<artifactId>").append(meta.artifactId).appendLine("</artifactId>")
-        if (meta.version != null) {
-            sb.append("<version>").append(meta.version.asString).appendLine("</version>")
-        }
-        sb.append("<versioning>")
-        if (meta.latest != null) {
-            sb.append("<latest>").append(meta.latest.asString).appendLine("</latest>")
-        }
-        if (meta.release != null) {
-            sb.append("<release>").append(meta.release.asString).appendLine("</release>")
-        }
-        if (meta.versions.isEmpty()) {
-            sb.append("<versions/>")
-        } else {
-            sb.appendLine("<versions>")
-            meta.versions.forEach { sb.append("<version>").append(it.asString).appendLine("</version>") }
-            sb.appendLine("</versions>")
-        }
-        sb.append("<lastUpdated>")
-            .append(datePattern.toString(meta.lastUpdate, timeZoneOffset = 0))
-            .append("</lastUpdated>")
-        sb.append("</versioning>")
-        sb.append("</metadata>")
-        return sb.toString()
-    }
+    suspend fun getMetaDataText(group: MavenGroup, artifact: String): String? =
+        getMetaData(group = group, artifact = artifact)
+            ?.let {
+                Xml().encodeToString(MavenMetadata.serializer(), it)
+            }
 }

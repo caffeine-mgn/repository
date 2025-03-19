@@ -2,6 +2,8 @@ package pw.binom.repo
 
 import pw.binom.io.httpServer.HttpHandler
 import pw.binom.io.httpServer.HttpServerExchange
+import pw.binom.logger.Logger
+import pw.binom.logger.info
 import pw.binom.url.Path
 import pw.binom.url.toPath
 
@@ -9,6 +11,7 @@ abstract class AbstractHttpHandler : HttpHandler {
     private val hostFilter = HashSet<String>()
     private val methodFilter = HashSet<String>()
     private val urlPrefixFilter = HashSet<String>()
+    private val logger by Logger.ofThisOrGlobal
     fun addHostFilter(host: String) {
         hostFilter += host
     }
