@@ -29,18 +29,38 @@ value class MavenVersion(val raw: String) : Comparable<MavenVersion> {
         private const val SNAPSHOT = "-SNAPSHOT"
 
         fun isVersion(text: String): Boolean {
-            val items = text.split('.')
-            for (i in 0 until items.size - 1) {
-                items[i].toIntOrNull() ?: return false
-            }
-            val lastElement = items.last()
-            val separator = lastElement.indexOf('-')
-            if (separator != -1) {
-                lastElement.substring(0, separator).toIntOrNull() ?: return false
+            val separator = text.lastIndexOf('-')
+            val withoutPrefix = if (separator != -1) {
+                text.substring(0, separator)
             } else {
-                lastElement.toIntOrNull() ?: return false
+                text
+            }
+            val elements = withoutPrefix.split('.')
+            if (elements.size==1 && withoutPrefix.toIntOrNull()!=null){
+                return true
+            }
+            if (elements.size < 2) {
+                return false
+            }
+            for (i in 0 until elements.size - 1) {
+                elements[i].toIntOrNull() ?: return false
             }
             return true
+
+//            val items = text.split('.')
+//
+//
+//            for (i in 0 until items.size - 1) {
+//                items[i].toIntOrNull() ?: return false
+//            }
+//            val lastElement = items.last()
+//            val separator = lastElement.indexOf('-')
+//            if (separator != -1) {
+//                lastElement.substring(0, separator).toIntOrNull() ?: return false
+//            } else {
+//                lastElement.toIntOrNull() ?: return false
+//            }
+//            return true
         }
     }
 

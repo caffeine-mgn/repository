@@ -3,6 +3,7 @@ package pw.binom.repo
 import pw.binom.date.DateTime
 import pw.binom.repo.repositories.maven.MavenMetadata
 import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.repositories.maven.MavenGroup
 import pw.binom.xml.serialization.Xml
 import kotlin.test.Test
 
@@ -10,7 +11,7 @@ class MavenMedataTest {
     @Test
     fun aa() {
         val data = MavenMetadata(
-            groupId = "binom-init",
+            groupId = MavenGroup("binom-init"),
             artifactId = "binom-init.gradle.plugin",
             version = MavenVersion("1.0.0"),
             versioning = MavenMetadata.Versioning(

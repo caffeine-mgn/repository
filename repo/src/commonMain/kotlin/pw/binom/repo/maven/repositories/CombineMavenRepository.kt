@@ -5,6 +5,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
 import pw.binom.io.AsyncInput
+import pw.binom.logger.Logger
+import pw.binom.logger.info
 import pw.binom.repo.maven.MavenVersion
 import pw.binom.repo.repositories.maven.MavenGroup
 import pw.binom.repo.repositories.maven.MavenMetadata
@@ -13,6 +15,9 @@ import kotlin.coroutines.coroutineContext
 data class CombineMavenRepository(
     val list: List<MavenRepository>,
 ) : MavenRepository {
+
+    private val logger = Logger.getLogger("CombineMavenRepository $list")
+
     override fun toString(): String =
         "CombineMavenRepository(list=$list)"
 
@@ -20,12 +25,18 @@ data class CombineMavenRepository(
         list
             .asFlow()
             .map {
-                it.get(
+                val e = it.get(
                     group = group,
                     artifact = artifact,
                     version = version,
                     file = file,
                 )
+                if (e != null) {
+                    logger.info("$group:$artifact:$version/$file found")
+                } else {
+                    logger.info("$group:$artifact:$version/$file not found")
+                }
+                e
             }
             .filterNotNull()
             .firstOrNull()
@@ -33,7 +44,15 @@ data class CombineMavenRepository(
     override suspend fun isExist(group: MavenGroup, artifact: String, version: MavenVersion, file: String): Long? =
         list
             .asFlow()
-            .mapNotNull { it.isExist(group = group, artifact = artifact, version = version, file = file) }
+            .mapNotNull {
+                val e = it.isExist(group = group, artifact = artifact, version = version, file = file)
+                if (e!=null) {
+                    logger.info("$group:$artifact:$version/$file found")
+                } else {
+                    logger.info("$group:$artifact:$version/$file not found")
+                }
+                e
+            }
             .firstOrNull()
 
     override suspend fun getMetaData(group: MavenGroup, artifact: String): MavenMetadata? {

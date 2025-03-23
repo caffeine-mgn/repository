@@ -11,6 +11,7 @@ class MavenVersionTest {
         MavenVersion.isVersion("1.0").shouldBeTrue()
         MavenVersion.isVersion("1.0.1").shouldBeTrue()
         MavenVersion.isVersion("1").shouldBeTrue()
+        MavenVersion.isVersion("0.9.0.M2").shouldBeTrue()
         MavenVersion.isVersion("1-SNAPSHOT").shouldBeTrue()
         MavenVersion.isVersion("1.0-SNAPSHOT").shouldBeTrue()
         MavenVersion.isVersion("1.0.0-SNAPSHOT").shouldBeTrue()

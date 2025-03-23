@@ -37,16 +37,21 @@ abstract class AbstractHttpHandler : HttpHandler {
                 return
             }
         }
+        logger.info("urlPrefixFilter=$urlPrefixFilter")
+        logger.info("exchange.path=${exchange.path}")
         if (urlPrefixFilter.isNotEmpty()) {
             val prefix = urlPrefixFilter.find { exchange.path.startsWith(it) }
             if (prefix == null) {
+                logger.info("Prefix is null :(")
                 return
             }
+            logger.info("prefix found!")
             exchange = OverridedExchange(
                 path = exchange.path.removePrefix(prefix.toPath),
                 other = exchange,
             )
         }
+        logger.info("processing...")
         processing(exchange)
     }
 

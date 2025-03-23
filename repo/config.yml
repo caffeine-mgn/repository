@@ -1,0 +1,76 @@
+repo:
+  repositories:
+    maven:
+      otp-clp-nonprod-mvn-hosted:
+        http:
+          url: 'https://nexus.isb/repository/clp-nonprod-mvn-hosted/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      idms-nonprod-mvn-hosted:
+        http:
+          url: 'https://nexus.isb/repository/idms-nonprod-mvn-hosted/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      auto-prod-mvn-hosted:
+        http:
+          url: 'https://nexus.isb/repository/auto-prod-mvn-hosted/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      auto-mvn-group:
+        http:
+          url: 'https://nexus.isb/repository/auto-mvn-group/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      distantcash-prod-mvn-hosted:
+        http:
+          url: 'https://nexus.isb/repository/distantcash-prod-mvn-hosted/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      pluginsgradle-mvn-proxy:
+        http:
+          url: 'https://nexus.isb/repository/pluginsgradle-mvn-proxy/'
+          auth:
+            basicAuth:
+              user: 'su-p-lendingonline'
+              password: 'P12DHvbFUA84'
+      maven-central:
+        http:
+          url: 'https://repo1.maven.org/maven2/'
+      cache-storage:
+        file:
+          root: 'C:\maven-cache'
+      combine-all:
+        combine:
+          readFrom:
+            - "maven-central"
+            - "otp-clp-nonprod-mvn-hosted"
+            - "idms-nonprod-mvn-hosted"
+            - "auto-prod-mvn-hosted"
+            - "auto-mvn-group"
+            - "distantcash-prod-mvn-hosted"
+            - "pluginsgradle-mvn-proxy"
+      cache:
+        cache:
+          source: 'combine-all'
+          storage: 'cache-storage'
+  endpoints:
+    endpoints:
+      port: 8076
+      repository:
+        maven: 'cache'
+      middlewares:
+        - urlPrefix: '/repository/clp-nonprod-mvn-hosted/'
+  proxy:
+    address: 'otp.xx:8081'
+    onlyFor:
+    - 'nexus.isb'

@@ -1,6 +1,7 @@
 package pw.binom.repo.repositories.maven
 
 import pw.binom.repo.maven.MavenVersion
+import pw.binom.repo.maven.repositories.MavenRepository
 
 sealed interface MavenResource {
     val group: MavenGroup
@@ -11,8 +12,14 @@ sealed interface MavenResource {
         fun parseURI(uri: String):MavenResource {
             val items = uri.split('/')
             val fileName = items.last()
-            val b = items[items.size - 2]
-            return if (MavenVersion.isVersion(b)) {
+            val b = items.getOrNull(items.size - 2)
+            val isMeta = when (fileName){
+                MavenRepository.MAVEN_METADATA_XML,
+                MavenRepository.MAVEN_METADATA_XML_MD5,
+                MavenRepository.MAVEN_METADATA_XML_SHA1->true
+                else->false
+            }
+            return if (b!=null && MavenVersion.isVersion(b)) {
                 val group = MavenGroup(items.subList(0, items.size - 3).joinToString("."))
                 val artifact = items[items.size - 3]
                 InVersion(
@@ -23,7 +30,7 @@ sealed interface MavenResource {
                 )
             } else {
                 val group = MavenGroup(items.subList(0, items.size - 2).joinToString("."))
-                val artifact = b
+                val artifact = b!!
                 InArtifact(
                     group = group,
                     artifact = artifact,

@@ -26,9 +26,9 @@ allprojects {
     group = "pw.binom.repo"
 
     repositories {
-        mavenLocal()
+        maven(url = "https://repo.binom.pw")
+//        mavenLocal()
         mavenCentral()
         jcenter()
-        maven(url = "https://repo.binom.pw")
     }
 }

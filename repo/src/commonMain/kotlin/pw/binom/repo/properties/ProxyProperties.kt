@@ -24,7 +24,4 @@ class ProxyProperties(
         @Greater("0")
         val bufferSize: Int = DEFAULT_BUFFER_SIZE,
     )
-
-
-
 }

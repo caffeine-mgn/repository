@@ -156,7 +156,7 @@ fun main(args: Array<String>) {
             }
 
         val nm = MultiFixedSizeThreadNetworkDispatcher(Environment.availableProcessors)
-
+        println("Proxy Config: ${proxyParams.proxy}")
         val proxyConfig2 = proxyParams.proxy?.toConfig()
 
         val httpFactory = Http11ConnectionFactory()

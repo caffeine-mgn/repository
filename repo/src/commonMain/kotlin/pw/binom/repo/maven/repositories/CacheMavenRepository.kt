@@ -17,10 +17,11 @@ data class CacheMavenRepository(
     val copingTimeout: Duration,
 ) : MavenRepository {
     override fun toString(): String =
-        "CacheMavenRepository(id=$id,copingTimeout=$copingTimeout,source=$source,cache=$cache)"
+        "CacheMavenRepository(id=$id)"
 
     private val logger = Logger.getLogger("CacheMavenRepository $id")
     override suspend fun get(group: MavenGroup, artifact: String, version: MavenVersion, file: String): AsyncInput? {
+        logger.info("Searching $group:$artifact:$version/$file")
         if (version.isSnapshot) {
             return source.get(
                 group = group,

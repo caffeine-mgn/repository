@@ -56,6 +56,7 @@ data class ExternalMavenRepository(
             version = version,
             file = file,
         )
+        logger.info("resultUrl=$resultUrl")
 
         val headers = if (auth != null) {
             val headerValue = when {
